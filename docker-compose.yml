@@ -1,0 +1,100 @@
+name: careerconnect
+
+services:
+  # ==========================================
+  # Database Service: MongoDB
+  # ==========================================
+  mongodb:
+    image: mongo:8.0
+    container_name: careerconnect_mongodb
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=careerconnect_db
+    ports:
+      - "127.0.0.1:27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - careerconnect_net
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==========================================
+  # Backend API & WebSocket Service
+  # ==========================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: careerconnect_backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - CLIENT_URL=http://localhost
+      - MONGODB_URI=mongodb://mongodb:27017/careerconnect_db
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be configured in the root .env file}
+      - JWT_EXPIRE=7d
+      - UPLOAD_PATH=uploads
+      - MAX_FILE_SIZE=5242880
+    ports:
+      - "5000:5000"
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - careerconnect_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================
+  # Frontend Client & Reverse Proxy Service (Nginx)
+  # ==========================================
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: careerconnect_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - careerconnect_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+# ==========================================
+# Named Persistent Storage Volumes
+# ==========================================
+volumes:
+  mongodb_data:
+    name: careerconnect_mongodb_data
+  backend_uploads:
+    name: careerconnect_backend_uploads
+
+# ==========================================
+# Isolated Bridge Network
+# ==========================================
+networks:
+  careerconnect_net:
+    name: careerconnect_network
+    driver: bridge
+

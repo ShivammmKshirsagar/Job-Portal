@@ -1,0 +1,73 @@
+name: CareerConnect CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    name: Build, Lint & Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:8.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+
+      - name: Install Client Dependencies
+        run: |
+          cd client
+          npm ci || npm install
+
+      - name: Install Server Dependencies
+        run: |
+          cd server
+          npm ci || npm install
+
+      - name: Lint Frontend
+        run: |
+          cd client
+          npm run lint
+
+      - name: Build Frontend (Production Vite Build)
+        run: |
+          cd client
+          npm run build
+        env:
+          VITE_API_URL: http://localhost:5000/api
+
+      - name: Run Backend Isolated Integration Tests
+        run: |
+          cd server
+          npm test
+        env:
+          PORT: 5055
+          NODE_ENV: test
+          MONGODB_URI: mongodb://127.0.0.1:27017/careerconnect_test_db
+          JWT_SECRET: ci_test_jwt_secret_careerconnect_2026
+
+      - name: Validate Docker Compose Configuration
+        run: |
+          docker compose config
+

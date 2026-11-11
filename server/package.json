@@ -1,0 +1,37 @@
+{
+  "name": "careerconnect-server",
+  "version": "1.0.0",
+  "description": "CareerConnect Backend API and Real-time WebSocket Server",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/seeders/seed.js",
+    "test": "node tests/jwt-security.test.js && node tests/isolated-integration.test.js && node tests/security-audit.test.js",
+    "test:jwt": "node tests/jwt-security.test.js",
+    "test:audit": "node tests/security-audit.test.js",
+    "test:integration": "node tests/isolated-integration.test.js",
+    "test:legacy": "node test-api.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.10.1",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "socket.io": "^4.8.1",
+    "swagger-ui-express": "^5.0.1",
+    "yamljs": "^0.3.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.1.4"
+  }
+}

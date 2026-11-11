@@ -1,778 +1,420 @@
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import api from '../services/api';
 import JobCard from '../components/JobCard';
-import { useJobs } from '../context/JobContext';
-
-const jobs = [
-  {
-    id: 1,
-    title: 'Frontend Developer',
-    company: 'TechNova',
-    category: 'Development',
-    type: 'Full-time',
-    location: 'Remote',
-    salary: '$80k - $100k',
-    experience: '1–3 yrs',
-    posted: '2 days ago',
-    skills: ['React', 'JavaScript', 'Tailwind'],
-    logo: 'TN',
-    featured: true,
-  },
-
-  {
-    id: 2,
-    title: 'UI/UX Designer',
-    company: 'Creative Co',
-    category: 'Design',
-    type: 'Contract',
-    location: 'New York, NY',
-    salary: '$50/hr',
-    experience: '2–4 yrs',
-    posted: '4 days ago',
-    skills: ['Figma', 'UX Research', 'Prototyping'],
-    logo: 'CC',
-  },
-
-  {
-    id: 3,
-    title: 'Backend Engineer',
-    company: 'DataStream',
-    category: 'Development',
-    type: 'Full-time',
-    location: 'San Francisco, CA',
-    salary: '$120k - $150k',
-    experience: '2–5 yrs',
-    posted: '1 day ago',
-    skills: ['Node.js', 'PostgreSQL', 'APIs'],
-    logo: 'DS',
-    featured: true,
-  },
-
-  {
-    id: 4,
-    title: 'Product Manager',
-    company: 'Innovate LLC',
-    category: 'Management',
-    type: 'Full-time',
-    location: 'Austin, TX',
-    salary: '$110k - $130k',
-    experience: '3–6 yrs',
-    posted: '5 days ago',
-    skills: ['Strategy', 'Agile', 'Analytics'],
-    logo: 'IL',
-  },
-
-  {
-    id: 5,
-    title: 'React Native Developer',
-    company: 'AppWorks',
-    category: 'Development',
-    type: 'Part-time',
-    location: 'Remote',
-    salary: '$60k - $80k',
-    experience: '1–3 yrs',
-    posted: '3 days ago',
-    skills: ['React Native', 'Expo', 'Firebase'],
-    logo: 'AW',
-  },
-
-  {
-    id: 6,
-    title: 'Data Analyst',
-    company: 'Insight Labs',
-    category: 'Data',
-    type: 'Full-time',
-    location: 'Chicago, IL',
-    salary: '$75k - $95k',
-    experience: '1–3 yrs',
-    posted: '6 days ago',
-    skills: ['SQL', 'Python', 'Power BI'],
-    logo: 'IL',
-  },
-];
 
 const JobListings = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // ----------------------------------
-  // LOCAL STATE
-  // ----------------------------------
+  // Search & Filter state initialized from URL query params
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [location, setLocation] = useState(searchParams.get('location') || '');
+  const [selectedJobTypes, setSelectedJobTypes] = useState(
+    searchParams.get('jobType') ? [searchParams.get('jobType')] : []
+  );
+  const [selectedExperience, setSelectedExperience] = useState(
+    searchParams.get('experienceLevel') ? [searchParams.get('experienceLevel')] : []
+  );
+  const [salaryMin, setSalaryMin] = useState(searchParams.get('salaryMin') || 40000);
+  const [salaryMax, setSalaryMax] = useState(searchParams.get('salaryMax') || 250000);
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'recent');
+  const [currentPage, setCurrentPage] = useState(
+    parseInt(searchParams.get('page') || '1', 10)
+  );
 
-  const [searchTerm, setSearchTerm] =
-    useState('');
+  // Quick filter state
+  const [activeQuickFilter, setActiveQuickFilter] = useState('');
 
-  const [selectedCategory, setSelectedCategory] =
-    useState('All');
+  // Results state from backend
+  const [jobs, setJobs] = useState([]);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
 
-  const [selectedType, setSelectedType] =
-    useState('All');
+  // Fetch jobs from backend API
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
 
-  const [sortBy, setSortBy] =
-    useState('recent');
+      if (search) params.append('search', search);
+      if (location) params.append('location', location);
+      if (selectedJobTypes.length > 0) {
+        params.append('jobType', selectedJobTypes[0]);
+      }
+      if (selectedExperience.length > 0) {
+        params.append('experienceLevel', selectedExperience[0]);
+      }
+      if (salaryMin) params.append('salaryMin', salaryMin);
+      if (salaryMax && salaryMax < 250000) params.append('salaryMax', salaryMax);
+      if (sortBy) params.append('sort', sortBy);
+      params.append('page', currentPage);
+      params.append('limit', 10);
 
-  const [applicationMessage, setApplicationMessage] =
-    useState('');
-
-  // ----------------------------------
-  // SHARED STATE FROM CONTEXT
-  // ----------------------------------
-
-  const { registeredJobs } = useJobs();
-
-  // ----------------------------------
-  // useEffect #1
-  // Update browser title when search changes
-  // ----------------------------------
+      const res = await api.get(`/jobs?${params.toString()}`);
+      if (res.data.success) {
+        setJobs(res.data.jobs);
+        setTotalJobs(res.data.total);
+        setTotalPages(res.data.totalPages);
+      }
+    } catch (err) {
+      console.error('Failed to fetch jobs:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, location, selectedJobTypes, selectedExperience, salaryMin, salaryMax, sortBy, currentPage]);
 
   useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
-    document.title = searchTerm
-      ? `Searching "${searchTerm}" | JobConnect`
-      : 'JobConnect | Find Your Next Opportunity';
+  // Sync state to URL
+  const updateUrlParams = (newParams) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(newParams).forEach(([k, v]) => {
+      if (v) next.set(k, v);
+      else next.delete(k);
+    });
+    setSearchParams(next);
+  };
 
-  }, [searchTerm]);
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setCurrentPage(1);
+    updateUrlParams({ search, location, page: 1 });
+    fetchJobs();
+  };
 
-  // ----------------------------------
-  // useEffect #2
-  // Automatically hide registration message
-  // ----------------------------------
-
-  useEffect(() => {
-
-    if (!applicationMessage) {
+  const handleQuickFilter = (filter) => {
+    if (activeQuickFilter === filter) {
+      setActiveQuickFilter('');
+      setSelectedJobTypes([]);
+      setSearch('');
+      setSalaryMin(40000);
       return;
     }
 
-    const timer = setTimeout(() => {
-      setApplicationMessage('');
-    }, 3000);
+    setActiveQuickFilter(filter);
+    setCurrentPage(1);
 
-    return () => clearTimeout(timer);
-
-  }, [applicationMessage]);
-
-  // ----------------------------------
-  // Categories
-  // ----------------------------------
-
-  const categories = [
-    'All',
-    ...new Set(
-      jobs.map((job) => job.category)
-    ),
-  ];
-
-  const jobTypes = [
-    'All',
-    ...new Set(
-      jobs.map((job) => job.type)
-    ),
-  ];
-
-  // ----------------------------------
-  // Search + filter + sorting
-  // ----------------------------------
-
-  const filteredJobs = useMemo(() => {
-
-    const normalizedSearch =
-      searchTerm.trim().toLowerCase();
-
-    const result = jobs.filter((job) => {
-
-      const searchableText = [
-        job.title,
-        job.company,
-        job.location,
-        job.category,
-        ...job.skills,
-      ]
-        .join(' ')
-        .toLowerCase();
-
-      const matchesSearch =
-        normalizedSearch === '' ||
-        searchableText.includes(
-          normalizedSearch
-        );
-
-      const matchesCategory =
-        selectedCategory === 'All' ||
-        job.category === selectedCategory;
-
-      const matchesType =
-        selectedType === 'All' ||
-        job.type === selectedType;
-
-      return (
-        matchesSearch &&
-        matchesCategory &&
-        matchesType
-      );
-    });
-
-    // Dynamic sorting
-    if (sortBy === 'company') {
-
-      return [...result].sort((a, b) =>
-        a.company.localeCompare(b.company)
-      );
-
+    if (filter === 'Remote') {
+      setSelectedJobTypes(['Remote']);
+      setLocation('Remote');
+    } else if (filter === 'Full-Time') {
+      setSelectedJobTypes(['Full-Time']);
+    } else if (filter === '$100k+') {
+      setSalaryMin(100000);
+    } else if (filter === 'Tech') {
+      setSearch('Frontend Developer React Software Engineer');
+    } else if (filter === 'Design') {
+      setSearch('Designer UI UX');
     }
-
-    if (sortBy === 'salary') {
-
-      return [...result].sort((a, b) => {
-
-        const salaryA =
-          parseInt(
-            a.salary.replace(/\D/g, ''),
-            10
-          ) || 0;
-
-        const salaryB =
-          parseInt(
-            b.salary.replace(/\D/g, ''),
-            10
-          ) || 0;
-
-        return salaryB - salaryA;
-      });
-    }
-
-    return result;
-
-  }, [
-    searchTerm,
-    selectedCategory,
-    selectedType,
-    sortBy,
-  ]);
-
-  // ----------------------------------
-  // Reset all filters
-  // ----------------------------------
-
-  const clearFilters = () => {
-
-    setSearchTerm('');
-    setSelectedCategory('All');
-    setSelectedType('All');
-    setSortBy('recent');
-
   };
 
-  // ----------------------------------
-  // Statistics
-  // ----------------------------------
+  const handleJobTypeToggle = (type) => {
+    setSelectedJobTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+    setCurrentPage(1);
+  };
 
-  const remoteJobs = jobs.filter(
-    (job) => job.location === 'Remote'
-  ).length;
+  const handleExperienceToggle = (exp) => {
+    setSelectedExperience((prev) =>
+      prev.includes(exp) ? prev.filter((e) => e !== exp) : [...prev, exp]
+    );
+    setCurrentPage(1);
+  };
 
-  const featuredJobs = jobs.filter(
-    (job) => job.featured
-  ).length;
+  const handleClearFilters = () => {
+    setSearch('');
+    setLocation('');
+    setSelectedJobTypes([]);
+    setSelectedExperience([]);
+    setSalaryMin(40000);
+    setSalaryMax(250000);
+    setSortBy('recent');
+    setActiveQuickFilter('');
+    setCurrentPage(1);
+    setSearchParams({});
+  };
 
   return (
-
-    <main className="min-h-screen bg-slate-50">
-
-      {/* =====================================
-          HERO SECTION
-      ===================================== */}
-
-      <section className="bg-slate-950 text-white">
-
-        <div className="mx-auto max-w-7xl px-4 py-16 md:px-8 md:py-20">
-
-          <div className="max-w-3xl">
-
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-blue-300">
-
-              <span className="h-2 w-2 rounded-full bg-blue-400" />
-
-              Your next opportunity starts here
-
+    <div className="min-h-screen bg-slate-50 py-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* Top Search Card (Figure 8.2) */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="flex flex-col gap-3 md:flex-row md:items-center"
+          >
+            {/* Keyword Input */}
+            <div className="flex flex-1 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+              <span className="material-symbols-outlined text-[20px] text-slate-400">
+                search
+              </span>
+              <input
+                type="text"
+                placeholder="Job title, keywords, or company"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
+              />
             </div>
 
-            <h1 className="text-4xl font-black leading-tight tracking-tight md:text-6xl">
-
-              Find work that
-              <span className="text-blue-500">
-                {' '}moves your career
+            {/* Location Input */}
+            <div className="flex flex-1 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+              <span className="material-symbols-outlined text-[20px] text-slate-400">
+                location_on
               </span>
-              {' '}forward.
+              <input
+                type="text"
+                placeholder="City, state, or zip"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
+              />
+            </div>
 
-            </h1>
+            <button
+              type="submit"
+              className="rounded-xl bg-blue-600 px-7 py-3 text-sm font-bold text-white shadow-sm shadow-blue-200 transition hover:bg-blue-700"
+            >
+              Find Jobs
+            </button>
+          </form>
 
-            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-400 md:text-lg">
-
-              Discover relevant opportunities,
-              explore growing companies and
-              keep track of your applications
-              in one place.
-
-            </p>
-
-          </div>
-
-          {/* Search Panel */}
-
-          <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-2xl md:p-5">
-
-            <div className="grid gap-3 lg:grid-cols-[1fr_220px_auto]">
-
-              {/* Search */}
-
-              <label className="relative block">
-
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-                  search
-                </span>
-
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(event) =>
-                    setSearchTerm(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Search jobs, companies, skills or locations..."
-                  className="h-12 w-full rounded-xl border border-slate-700 bg-slate-800 pl-12 pr-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-
-              </label>
-
-              {/* Category */}
-
-              <select
-                value={selectedCategory}
-                onChange={(event) =>
-                  setSelectedCategory(
-                    event.target.value
-                  )
-                }
-                className="h-12 rounded-xl border border-slate-700 bg-slate-800 px-4 text-sm font-medium text-white outline-none focus:border-blue-500"
+          {/* Quick Filters */}
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 text-xs">
+            <span className="font-bold text-slate-400 mr-1">Quick filters:</span>
+            {['Remote', 'Full-Time', '$100k+', 'Tech', 'Design'].map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => handleQuickFilter(filter)}
+                className={`rounded-full px-3 py-1 font-semibold transition ${
+                  activeQuickFilter === filter
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
               >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
 
-                {categories.map(
-                  (category) => (
+        {/* Main 2-Column Content */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Left Column: Filter Sidebar */}
+          <aside className="lg:col-span-1">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <h3 className="font-black text-slate-900 text-base">Filters</h3>
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="text-xs font-bold text-blue-600 hover:underline"
+                >
+                  Clear All
+                </button>
+              </div>
 
-                    <option
-                      key={category}
-                      value={category}
+              {/* Job Type */}
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">
+                  Job Type
+                </h4>
+                <div className="space-y-2.5">
+                  {[
+                    { label: 'Full-Time', count: '2,451' },
+                    { label: 'Contract', count: '842' },
+                    { label: 'Part-Time', count: '320' },
+                    { label: 'Remote', count: '1,120' },
+                  ].map(({ label }) => (
+                    <label
+                      key={label}
+                      className="flex items-center justify-between text-sm text-slate-700 cursor-pointer hover:text-blue-600"
                     >
-                      {category === 'All'
-                        ? 'All categories'
-                        : category}
-                    </option>
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedJobTypes.includes(label)}
+                          onChange={() => handleJobTypeToggle(label)}
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>{label}</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
-                  )
-                )}
+              {/* Experience Level */}
+              <div className="border-t border-slate-100 pt-5">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">
+                  Experience Level
+                </h4>
+                <div className="space-y-2.5">
+                  {['Entry Level', 'Mid Level', 'Senior Level', 'Lead / Executive'].map(
+                    (level) => (
+                      <label
+                        key={level}
+                        className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer hover:text-blue-600"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedExperience.includes(level)}
+                          onChange={() => handleExperienceToggle(level)}
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>{level}</span>
+                      </label>
+                    )
+                  )}
+                </div>
+              </div>
 
-              </select>
-
-              {/* Reset */}
-
-              <button
-                onClick={clearFilters}
-                className="h-12 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-500"
-              >
-                Reset filters
-              </button>
-
+              {/* Salary Estimate Slider */}
+              <div className="border-t border-slate-100 pt-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                    Salary Estimate
+                  </h4>
+                  <span className="text-xs font-bold text-blue-600">
+                    ${(salaryMin / 1000).toFixed(0)}k - ${(salaryMax / 1000).toFixed(0)}k+
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="40000"
+                  max="250000"
+                  step="5000"
+                  value={salaryMin}
+                  onChange={(e) => {
+                    setSalaryMin(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="w-full accent-blue-600 cursor-pointer"
+                />
+                <div className="flex justify-between text-[11px] font-semibold text-slate-400 mt-1">
+                  <span>$40k</span>
+                  <span>$250k+</span>
+                </div>
+              </div>
             </div>
+          </aside>
 
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* =====================================
-          STATISTICS
-      ===================================== */}
-
-      <div className="mx-auto max-w-7xl px-4 md:px-8">
-
-        <section className="-mt-6 grid gap-3 sm:grid-cols-3">
-
-          {/* Open Roles */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Open roles
-            </p>
-
-            <p className="mt-1 text-2xl font-black text-slate-900">
-              {jobs.length}
-            </p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Across multiple teams
-            </p>
-
-          </div>
-
-          {/* Remote */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Remote roles
-            </p>
-
-            <p className="mt-1 text-2xl font-black text-slate-900">
-              {remoteJobs}
-            </p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Flexible opportunities
-            </p>
-
-          </div>
-
-          {/* Applications */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              My applications
-            </p>
-
-            <p className="mt-1 text-2xl font-black text-blue-600">
-              {registeredJobs.length}
-            </p>
-
-            <p className="mt-1 text-xs text-slate-500">
-              Shared through Context API
-            </p>
-
-          </div>
-
-        </section>
-
-        {/* =====================================
-            JOB LISTINGS
-        ===================================== */}
-
-        <section
-          id="jobs"
-          className="mt-10"
-        >
-
-          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-
-            <div>
-
-              <p className="text-sm font-semibold text-blue-600">
-                Job board
+          {/* Right Column: Job Listings Feed */}
+          <main className="lg:col-span-3">
+            {/* Header & Sort Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+              <p className="text-sm font-semibold text-slate-600">
+                Showing{' '}
+                <span className="font-bold text-slate-900">
+                  {jobs.length > 0 ? (currentPage - 1) * 10 + 1 : 0} -{' '}
+                  {Math.min(currentPage * 10, totalJobs)}
+                </span>{' '}
+                of <span className="font-bold text-slate-900">{totalJobs}</span> jobs
               </p>
 
-              <h2 className="mt-1 text-2xl font-black text-slate-900">
-                Latest opportunities
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-
-                {filteredJobs.length}
-                {' '}
-                matching role
-                {filteredJobs.length !== 1
-                  ? 's'
-                  : ''}
-
-              </p>
-
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400">Sort by:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="recent">Most Recent</option>
+                  <option value="salary-desc">Salary: High to Low</option>
+                  <option value="salary-asc">Salary: Low to High</option>
+                  <option value="oldest">Oldest</option>
+                </select>
+              </div>
             </div>
 
-            {/* Category Buttons */}
-
-            <div className="flex flex-wrap gap-2">
-
-              {categories.map(
-                (category) => (
-
-                  <button
-                    key={category}
-                    onClick={() =>
-                      setSelectedCategory(
-                        category
-                      )
-                    }
-                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                      selectedCategory === category
-                        ? 'border-blue-600 bg-blue-600 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600'
-                    }`}
-                  >
-                    {category}
-                  </button>
-
-                )
-              )}
-
-            </div>
-
-          </div>
-
-          {/* =====================================
-              FILTER BAR
-          ===================================== */}
-
-          <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-
-            <div className="flex flex-wrap items-center gap-2">
-
-              <span className="text-sm font-bold text-slate-700">
-                Job type:
-              </span>
-
-              {jobTypes.map(
-                (type) => (
-
-                  <button
-                    key={type}
-                    onClick={() =>
-                      setSelectedType(type)
-                    }
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                      selectedType === type
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {type}
-                  </button>
-
-                )
-              )}
-
-            </div>
-
-            <label className="flex items-center gap-2 text-sm text-slate-500">
-
-              <span className="font-semibold">
-                Sort:
-              </span>
-
-              <select
-                value={sortBy}
-                onChange={(event) =>
-                  setSortBy(
-                    event.target.value
-                  )
-                }
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-700 outline-none focus:border-blue-500"
-              >
-
-                <option value="recent">
-                  Most recent
-                </option>
-
-                <option value="company">
-                  Company name
-                </option>
-
-                <option value="salary">
-                  Highest salary
-                </option>
-
-              </select>
-
-            </label>
-
-          </div>
-
-          {/* =====================================
-              CONDITIONAL RENDERING
-          ===================================== */}
-
-          {filteredJobs.length > 0 ? (
-
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-
-              {filteredJobs.map(
-                (job) => (
-
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    onRegistered={(title) =>
-                      setApplicationMessage(
-                        title
-                      )
-                    }
-                  />
-
-                )
-              )}
-
-            </div>
-
-          ) : (
-
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-14 text-center">
-
-              <span className="material-symbols-outlined text-5xl text-slate-300">
-                search_off
-              </span>
-
-              <h3 className="mt-4 text-xl font-bold text-slate-800">
-                No matching jobs
-              </h3>
-
-              <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-                Try another keyword,
-                category or job type
-                to discover more
-                opportunities.
-              </p>
-
-              <button
-                onClick={clearFilters}
-                className="mt-5 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-700"
-              >
-                Clear all filters
-              </button>
-
-            </div>
-
-          )}
-
-        </section>
-
-        {/* =====================================
-            APPLICATION SUMMARY
-        ===================================== */}
-
-        <section
-          id="registered"
-          className="mt-10 overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm"
-        >
-
-          <div className="flex flex-col gap-3 border-b border-blue-100 bg-blue-50/70 p-6 md:flex-row md:items-center md:justify-between">
-
-            <div>
-
-              <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-                Context API
-              </p>
-
-              <h2 className="mt-1 text-xl font-black text-slate-900">
-                My applications
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Shared registration state
-                available across the application.
-              </p>
-
-            </div>
-
-            <span className="w-fit rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white">
-              {registeredJobs.length}
-              {' '}
-              registered
-            </span>
-
-          </div>
-
-          {/* Conditional Rendering */}
-
-          {registeredJobs.length > 0 ? (
-
-            <div className="grid gap-3 p-6 md:grid-cols-2">
-
-              {registeredJobs.map(
-                (job) => (
-
+            {/* List of Job Cards */}
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
                   <div
-                    key={job.id}
-                    className="flex items-center gap-4 rounded-xl border border-slate-200 p-4"
-                  >
+                    key={i}
+                    className="h-36 rounded-2xl bg-white border border-slate-200 animate-pulse"
+                  ></div>
+                ))}
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
+                <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-600 mb-3">
+                  <span className="material-symbols-outlined text-[24px]">search_off</span>
+                </div>
+                <h3 className="font-black text-slate-900 text-lg">No jobs match your criteria</h3>
+                <p className="mt-1 text-sm text-slate-500 max-w-sm mx-auto">
+                  Try adjusting your search terms, removing filters, or searching for other roles.
+                </p>
+                <button
+                  onClick={handleClearFilters}
+                  className="mt-4 rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  Reset All Filters
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {jobs.map((job) => (
+                  <JobCard key={job._id} job={job} />
+                ))}
+              </div>
+            )}
 
-                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-900 text-sm font-black text-white">
-                      {job.logo}
-                    </div>
+            {/* Pagination Controls matching Figure 8.2 */}
+            {totalPages > 1 && (
+              <div className="mt-10 flex items-center justify-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-50 transition"
+                  aria-label="Previous Page"
+                >
+                  <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                </button>
 
-                    <div className="min-w-0">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                  .map((p, idx, arr) => (
+                    <React.Fragment key={p}>
+                      {idx > 0 && p - arr[idx - 1] > 1 && (
+                        <span className="px-1 text-slate-400">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(p)}
+                        className={`grid h-9 w-9 place-items-center rounded-lg text-xs font-bold transition ${
+                          currentPage === p
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </React.Fragment>
+                  ))}
 
-                      <p className="truncate font-bold text-slate-800">
-                        {job.title}
-                      </p>
-
-                      <p className="text-sm text-slate-500">
-                        {job.company}
-                        {' · '}
-                        {job.location}
-                      </p>
-
-                    </div>
-
-                    <span className="material-symbols-outlined ml-auto text-emerald-500">
-                      check_circle
-                    </span>
-
-                  </div>
-
-                )
-              )}
-
-            </div>
-
-          ) : (
-
-            <div className="p-8 text-center">
-
-              <span className="material-symbols-outlined text-4xl text-slate-300">
-                work_history
-              </span>
-
-              <p className="mt-2 font-semibold text-slate-700">
-                No applications yet
-              </p>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Register for a job above
-                and it will appear here.
-              </p>
-
-            </div>
-
-          )}
-
-        </section>
-
-      </div>
-
-      {/* =====================================
-          REGISTRATION NOTIFICATION
-      ===================================== */}
-
-      {applicationMessage && (
-
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl bg-slate-900 px-5 py-4 text-sm font-semibold text-white shadow-2xl">
-
-          <span className="material-symbols-outlined text-emerald-400">
-            check_circle
-          </span>
-
-          Registered for
-          {' '}
-          {applicationMessage}
-
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 disabled:opacity-40 hover:bg-slate-50 transition"
+                  aria-label="Next Page"
+                >
+                  <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                </button>
+              </div>
+            )}
+          </main>
         </div>
-
-      )}
-
-    </main>
+      </div>
+    </div>
   );
 };
 

@@ -1,0 +1,916 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "CareerConnect REST API",
+    "version": "1.0.0",
+    "description": "Comprehensive RESTful API for the CareerConnect Full-Stack Job Portal web application. Supports candidate job searches, resume submissions, employer pipeline and applicant review, administrative management, real-time messaging, and email verification workflows."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local Development Server"
+    },
+    {
+      "url": "http://localhost",
+      "description": "Docker Nginx Reverse Proxy"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Provide a valid JWT token in the format 'Bearer <token>'"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["candidate", "employer", "admin"] },
+          "isVerified": { "type": "boolean" },
+          "status": { "type": "string", "enum": ["active", "suspended", "banned"] },
+          "avatar": { "type": "string" },
+          "title": { "type": "string" },
+          "bio": { "type": "string" },
+          "location": { "type": "string" },
+          "skills": { "type": "array", "items": { "type": "string" } },
+          "resumeUrl": { "type": "string" },
+          "resumeOriginalName": { "type": "string" },
+          "company": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "title": { "type": "string" },
+          "company": { "type": "string" },
+          "companyName": { "type": "string" },
+          "employer": { "type": "string" },
+          "description": { "type": "string" },
+          "requirements": { "type": "array", "items": { "type": "string" } },
+          "skills": { "type": "array", "items": { "type": "string" } },
+          "jobType": { "type": "string", "enum": ["Full-Time", "Part-Time", "Contract", "Internship", "Remote"] },
+          "experienceLevel": { "type": "string", "enum": ["Entry-Level", "Mid-Level", "Senior", "Lead", "Executive"] },
+          "category": { "type": "string" },
+          "location": { "type": "string" },
+          "salaryMin": { "type": "number" },
+          "salaryMax": { "type": "number" },
+          "salaryCurrency": { "type": "string" },
+          "status": { "type": "string", "enum": ["Active", "Closed", "Draft"] },
+          "applicantCount": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Company": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string" },
+          "employer": { "type": "string" },
+          "description": { "type": "string" },
+          "industry": { "type": "string" },
+          "location": { "type": "string" },
+          "website": { "type": "string" },
+          "logo": { "type": "string" },
+          "isVerified": { "type": "boolean" },
+          "companySize": { "type": "string" }
+        }
+      },
+      "Application": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "job": { "type": "string" },
+          "candidate": { "type": "string" },
+          "status": { "type": "string", "enum": ["Pending", "Reviewed", "Shortlisted", "Rejected", "Hired"] },
+          "resumeUrl": { "type": "string" },
+          "resumeOriginalName": { "type": "string" },
+          "coverNote": { "type": "string" },
+          "portfolioUrl": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "sender": { "type": "string" },
+          "recipient": { "type": "string" },
+          "content": { "type": "string" },
+          "attachmentUrl": { "type": "string" },
+          "job": { "type": "string" },
+          "read": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "user": { "type": "string" },
+          "title": { "type": "string" },
+          "message": { "type": "string" },
+          "type": { "type": "string", "enum": ["application_update", "new_message", "job_alert", "system"] },
+          "read": { "type": "boolean" },
+          "link": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string" },
+          "errors": { "type": "array", "items": { "type": "object" } }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user account (Candidate or Employer)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password"],
+                "properties": {
+                  "name": { "type": "string", "example": "Jane Doe" },
+                  "email": { "type": "string", "format": "email", "example": "jane@example.com" },
+                  "password": { "type": "string", "minLength": 6, "example": "Secret123!" },
+                  "role": { "type": "string", "enum": ["candidate", "employer"], "default": "candidate" },
+                  "companyName": { "type": "string", "example": "Tech Corp" },
+                  "companyWebsite": { "type": "string", "example": "https://techcorp.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully. Verification email dispatched.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } }
+          },
+          "400": { "description": "Validation error or email already in use" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Authenticate user with email and password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "recruiter@technova.com" },
+                  "password": { "type": "string", "example": "EmployerPassword123!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful, returns JWT token and user profile.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } }
+          },
+          "401": { "description": "Invalid email or password" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Retrieve authenticated user's profile and company details",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Current user profile" },
+          "401": { "description": "Unauthorized token missing or invalid" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Log out user and clear auth cookies",
+        "responses": {
+          "200": { "description": "Logged out successfully" }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Request a password reset email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "candidate@example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password reset email dispatched" },
+          "404": { "description": "User with specified email not found" }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Reset password using single-use cryptographically random token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "password"],
+                "properties": {
+                  "token": { "type": "string", "example": "7c8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a" },
+                  "password": { "type": "string", "minLength": 6, "example": "NewSecurePassword123!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password successfully reset" },
+          "400": { "description": "Invalid or expired token" }
+        }
+      }
+    },
+    "/api/auth/verify-email/{token}": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Verify user email address via URL verification token (Email link click)",
+        "parameters": [
+          { "name": "token", "in": "path", "required": true, "schema": { "type": "string" }, "description": "32-byte hex verification token" }
+        ],
+        "responses": {
+          "200": { "description": "Email verified successfully" },
+          "400": { "description": "Invalid or expired verification token" }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify user email address via JSON body token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token"],
+                "properties": {
+                  "token": { "type": "string", "description": "32-byte hex verification token" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Email verified successfully" },
+          "400": { "description": "Invalid or expired verification token" }
+        }
+      }
+    },
+    "/api/auth/resend-verification": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Resend email verification token (rate limited to 1 request per 60s)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "candidate@example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Verification email resent" },
+          "400": { "description": "Account already verified or user not found" },
+          "429": { "description": "Rate limit exceeded. Please wait 60 seconds." }
+        }
+      }
+    },
+    "/api/jobs": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "Search, filter, and paginate job listings",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Keyword search across title, description, company, and skills" },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "jobType", "in": "query", "schema": { "type": "string", "enum": ["Full-Time", "Part-Time", "Contract", "Internship", "Remote"] } },
+          { "name": "experienceLevel", "in": "query", "schema": { "type": "string", "enum": ["Entry-Level", "Mid-Level", "Senior", "Lead", "Executive"] } },
+          { "name": "location", "in": "query", "schema": { "type": "string" } },
+          { "name": "salaryMin", "in": "query", "schema": { "type": "number" } },
+          { "name": "salaryMax", "in": "query", "schema": { "type": "number" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of jobs with metadata" }
+        }
+      },
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Create a new job posting (Employer or Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "description", "location"],
+                "properties": {
+                  "title": { "type": "string", "example": "Senior Full-Stack Engineer" },
+                  "description": { "type": "string" },
+                  "requirements": { "type": "array", "items": { "type": "string" } },
+                  "skills": { "type": "array", "items": { "type": "string" } },
+                  "jobType": { "type": "string", "enum": ["Full-Time", "Part-Time", "Contract", "Internship", "Remote"] },
+                  "experienceLevel": { "type": "string", "enum": ["Entry-Level", "Mid-Level", "Senior", "Lead", "Executive"] },
+                  "category": { "type": "string" },
+                  "location": { "type": "string" },
+                  "salaryMin": { "type": "number" },
+                  "salaryMax": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Job created successfully" },
+          "403": { "description": "Forbidden - requires employer or admin role" }
+        }
+      }
+    },
+    "/api/jobs/featured": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "Get curated list of featured jobs for home page",
+        "responses": {
+          "200": { "description": "List of featured active jobs" }
+        }
+      }
+    },
+    "/api/jobs/employer/my-jobs": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "Get all job listings posted by the authenticated employer",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of employer's jobs with applicant counters" },
+          "403": { "description": "Forbidden - employer/admin role required" }
+        }
+      }
+    },
+    "/api/jobs/{id}": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "Get single job details including company info and related openings",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Job ObjectId" }
+        ],
+        "responses": {
+          "200": { "description": "Job details with hasApplied flag if authenticated" },
+          "404": { "description": "Job not found" }
+        }
+      },
+      "put": {
+        "tags": ["Jobs"],
+        "summary": "Update an existing job posting (Owner Employer or Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "requirements": { "type": "array", "items": { "type": "string" } },
+                  "salaryMin": { "type": "number" },
+                  "salaryMax": { "type": "number" },
+                  "status": { "type": "string", "enum": ["Active", "Closed", "Draft"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Job updated successfully" },
+          "403": { "description": "Forbidden - not authorized to modify this job" }
+        }
+      },
+      "delete": {
+        "tags": ["Jobs"],
+        "summary": "Delete a job posting and its associated applications",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Job removed successfully" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/api/jobs/{id}/status": {
+      "patch": {
+        "tags": ["Jobs"],
+        "summary": "Toggle or update job status between Active and Closed",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["Active", "Closed", "Draft"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Job status updated" }
+        }
+      }
+    },
+    "/api/companies": {
+      "get": {
+        "tags": ["Companies"],
+        "summary": "Search & list registered hiring companies",
+        "parameters": [
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "industry", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of companies with active job counts" }
+        }
+      }
+    },
+    "/api/companies/top-hiring": {
+      "get": {
+        "tags": ["Companies"],
+        "summary": "Get top hiring companies ordered by open positions",
+        "responses": {
+          "200": { "description": "Top hiring companies list" }
+        }
+      }
+    },
+    "/api/companies/{id}": {
+      "get": {
+        "tags": ["Companies"],
+        "summary": "Get company profile along with all active posted jobs",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Company profile and active job openings" },
+          "404": { "description": "Company not found" }
+        }
+      },
+      "put": {
+        "tags": ["Companies"],
+        "summary": "Update company profile information (Employer or Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "industry": { "type": "string" },
+                  "location": { "type": "string" },
+                  "website": { "type": "string" },
+                  "logo": { "type": "string" },
+                  "companySize": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Company profile updated" }
+        }
+      }
+    },
+    "/api/applications/{jobId}": {
+      "post": {
+        "tags": ["Applications"],
+        "summary": "Apply to a job opening (Candidate only)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "resume": { "type": "string", "format": "binary", "description": "Optional custom resume PDF/DOCX" },
+                  "coverNote": { "type": "string" },
+                  "portfolioUrl": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Application submitted successfully" },
+          "400": { "description": "Already applied or missing resume" },
+          "403": { "description": "Only candidates can apply to jobs" }
+        }
+      }
+    },
+    "/api/applications/candidate/my-applications": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get candidate's submitted job applications and timeline statuses",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Candidate application list with status metrics" }
+        }
+      }
+    },
+    "/api/applications/job/{jobId}": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get all candidate applications for a specific job posting (Employer/Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "List of job applications with candidate profile previews" },
+          "403": { "description": "Forbidden - not the job owner" }
+        }
+      }
+    },
+    "/api/applications/{id}/status": {
+      "patch": {
+        "tags": ["Applications"],
+        "summary": "Update an applicant's stage in the hiring pipeline",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["Pending", "Reviewed", "Shortlisted", "Rejected", "Hired"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Application status updated and real-time notification dispatched" }
+        }
+      }
+    },
+    "/api/users/profile": {
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update candidate or employer profile attributes",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "title": { "type": "string" },
+                  "bio": { "type": "string" },
+                  "location": { "type": "string" },
+                  "skills": { "type": "array", "items": { "type": "string" } },
+                  "avatar": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Profile updated successfully" }
+        }
+      }
+    },
+    "/api/users/resume": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Upload or replace default resume for candidate profile",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["resume"],
+                "properties": {
+                  "resume": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Resume uploaded successfully" }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get public profile of candidate or employer by User ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User profile data" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
+    "/api/messages/conversations": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Get list of active conversation threads with latest message & unread badge",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Active conversation threads" }
+        }
+      }
+    },
+    "/api/messages/{partnerId}": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Get full chat message history between authenticated user and conversation partner",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "partnerId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Chronological message history" }
+        }
+      }
+    },
+    "/api/messages": {
+      "post": {
+        "tags": ["Messages"],
+        "summary": "Send a chat message with optional file attachment via REST fallback",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["recipient", "content"],
+                "properties": {
+                  "recipient": { "type": "string" },
+                  "content": { "type": "string" },
+                  "job": { "type": "string" },
+                  "attachment": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Message created and forwarded" }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get user notifications and unread notification counter",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User notification list" }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Mark a single notification as read",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Notification marked as read" }
+        }
+      }
+    },
+    "/api/notifications/read-all": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Mark all notifications for authenticated user as read",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "All notifications marked as read" }
+        }
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get system platform metrics (users, jobs, applications, active listings)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Platform key performance indicators" },
+          "403": { "description": "Admin access required" }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List and search all registered platform users with status flags",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "role", "in": "query", "schema": { "type": "string", "enum": ["all", "candidate", "employer", "admin"] } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["all", "active", "suspended", "banned"] } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "User records list" }
+        }
+      }
+    },
+    "/api/admin/users/{id}/status": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Update user account status (active, suspended, banned)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["active", "suspended", "banned"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User status modified" }
+        }
+      }
+    },
+    "/api/admin/companies": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List all company profiles with verification states",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Company records list" }
+        }
+      }
+    },
+    "/api/admin/companies/{id}/status": {
+      "patch": {
+        "tags": ["Admin"],
+        "summary": "Verify or reject company profile",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["isVerified"],
+                "properties": {
+                  "isVerified": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Company verification status updated" }
+        }
+      }
+    },
+    "/api/admin/taxonomy": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get job categories, industries, and platform skills taxonomy",
+        "responses": {
+          "200": { "description": "Taxonomy list" }
+        }
+      },
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Add a new taxonomy term (category, industry, or skill)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "type"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { "type": "string", "enum": ["category", "industry", "skill"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Taxonomy term created" }
+        }
+      }
+    },
+    "/api/admin/taxonomy/{id}": {
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete a taxonomy item by ID",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Taxonomy item deleted" }
+        }
+      }
+    }
+  }
+}

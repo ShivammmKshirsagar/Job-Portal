@@ -1,0 +1,15 @@
+node_modules
+uploads/*
+!uploads/.gitkeep
+!uploads/*.pdf
+.git
+.gitignore
+*.log
+.env
+.env.*
+.DS_Store
+README.md
+tests
+test-api.js
+coverage
+

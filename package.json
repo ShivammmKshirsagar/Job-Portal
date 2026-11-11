@@ -1,4 +1,20 @@
 {
+  "name": "careerconnect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CareerConnect - Comprehensive Full-Stack Job Portal",
+  "type": "module",
+  "scripts": {
+    "start": "npm --prefix server start",
+    "dev": "npm --prefix client run dev",
+    "server": "npm --prefix server run dev",
+    "client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "lint": "npm --prefix client run lint",
+    "seed": "npm --prefix server run seed",
+    "test": "npm --prefix server test",
+    "screenshots": "node scripts/capture-screenshots.js && node scripts/capture-docker-screenshot.js"
+  },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.3"

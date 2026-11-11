@@ -1,0 +1,44 @@
+name: CareerConnect Docker Build & Verification
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'client/**'
+      - 'server/**'
+      - 'docker-compose.yml'
+      - '**/Dockerfile'
+      - '.github/workflows/docker-build.yml'
+  workflow_dispatch:
+
+jobs:
+  docker-build:
+    name: Build & Validate Multi-Stage Containers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Docker Compose Configuration
+        run: docker compose config
+
+      - name: Build Backend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: false
+          tags: careerconnect-backend:ci
+
+      - name: Build Frontend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: false
+          tags: careerconnect-frontend:ci
+

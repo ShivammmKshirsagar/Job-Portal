@@ -1,50 +1,177 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api from '../services/api';
+import { useAuth } from './AuthContext';
 
 const JobContext = createContext(null);
 
 export const JobProvider = ({ children }) => {
-  // Shared application state
-  const [registeredJobs, setRegisteredJobs] = useState(() => {
-    const savedJobs = localStorage.getItem('jobconnect_registered_jobs');
+  const { isAuthenticated, user } = useAuth();
 
+  // Backward compatibility state for registered jobs
+  const [registeredJobs, setRegisteredJobs] = useState(() => {
+    const savedJobs = localStorage.getItem('careerconnect_registered_jobs') || localStorage.getItem('jobconnect_registered_jobs');
     return savedJobs ? JSON.parse(savedJobs) : [];
   });
 
-  // useEffect:
-  // Save registration state whenever registeredJobs changes.
+  // Backend state
+  const [jobs, setJobs] = useState([]);
+  const [featuredJobs, setFeaturedJobs] = useState([]);
+  const [myApplications, setMyApplications] = useState([]);
+  const [applicationMetrics, setApplicationMetrics] = useState({
+    totalApps: 0,
+    inReview: 0,
+    shortlisted: 0,
+    rejected: 0,
+    savedJobs: 8,
+  });
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  // Filters state
+  const [filters, setFilters] = useState({
+    search: '',
+    category: 'All',
+    jobType: 'All',
+    experienceLevel: 'All',
+    location: '',
+    salaryMin: '',
+    salaryMax: '',
+    sort: 'recent',
+    page: 1,
+  });
+
+  // Sync registeredJobs with localStorage
   useEffect(() => {
-    localStorage.setItem(
-      'jobconnect_registered_jobs',
-      JSON.stringify(registeredJobs)
-    );
+    localStorage.setItem('careerconnect_registered_jobs', JSON.stringify(registeredJobs));
   }, [registeredJobs]);
 
-  // State update function
-  const registerForJob = (job) => {
-    setRegisteredJobs((currentJobs) => {
-      // Prevent duplicate registration
-      if (
-        currentJobs.some(
-          (registeredJob) => registeredJob.id === job.id
-        )
-      ) {
-        return currentJobs;
-      }
+  // Fetch jobs from backend
+  const fetchJobs = useCallback(async (customParams = {}) => {
+    setLoading(true);
+    try {
+      const params = { ...filters, ...customParams };
+      const queryParams = new URLSearchParams();
 
-      return [...currentJobs, job];
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== '' && val !== 'All' && val !== null && val !== undefined) {
+          queryParams.append(key, val);
+        }
+      });
+
+      const res = await api.get(`/jobs?${queryParams.toString()}`);
+      if (res.data.success) {
+        setJobs(res.data.jobs);
+        setTotalJobs(res.data.total);
+        setTotalPages(res.data.totalPages);
+        setCurrentPage(res.data.currentPage);
+      }
+    } catch (err) {
+      console.error('Error fetching jobs:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
+  // Fetch featured jobs for homepage
+  const fetchFeaturedJobs = async () => {
+    try {
+      const res = await api.get('/jobs/featured');
+      if (res.data.success) {
+        setFeaturedJobs(res.data.jobs);
+      }
+    } catch (err) {
+      console.error('Error fetching featured jobs:', err);
+    }
+  };
+
+  // Fetch candidate's applications from backend
+  const fetchMyApplications = useCallback(async () => {
+    if (!isAuthenticated || user?.role !== 'candidate') return;
+    try {
+      const res = await api.get('/applications/candidate/my-applications');
+      if (res.data.success) {
+        setMyApplications(res.data.applications);
+        setApplicationMetrics(res.data.metrics);
+
+        // Also sync registeredJobs IDs
+        const appliedJobObjects = res.data.applications.map((app) => ({
+          id: app.jobId?._id || app._id,
+          title: app.jobId?.title || 'Applied Role',
+          company: app.jobId?.companyId?.name || 'Company',
+          status: app.status,
+          appliedAt: app.appliedAt,
+        }));
+        setRegisteredJobs(appliedJobObjects);
+      }
+    } catch (err) {
+      console.error('Error fetching applications:', err);
+    }
+  }, [isAuthenticated, user?.role]);
+
+  useEffect(() => {
+    fetchFeaturedJobs();
+  }, []);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'candidate') {
+      fetchMyApplications();
+    }
+  }, [isAuthenticated, user?.role, fetchMyApplications]);
+
+  // Apply to job
+  const applyToJob = async (jobId, { coverNote = '', portfolioUrl = '', resume = null } = {}) => {
+    const formData = new FormData();
+    if (coverNote) formData.append('coverNote', coverNote);
+    if (portfolioUrl) formData.append('portfolioUrl', portfolioUrl);
+    if (resume) formData.append('resume', resume);
+
+    const res = await api.post(`/applications/${jobId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    if (res.data.success) {
+      await fetchMyApplications();
+      return res.data;
+    }
+  };
+
+  // Backward compatibility registration function
+  const registerForJob = (job) => {
+    setRegisteredJobs((current) => {
+      const jobId = job.id || job._id;
+      if (current.some((j) => (j.id || j._id) === jobId)) return current;
+      return [...current, job];
     });
   };
 
-  // Check whether a job has already been registered
   const isRegistered = (jobId) => {
     return registeredJobs.some(
-      (job) => job.id === jobId
+      (job) => (job.id || job._id) === jobId || job.jobId?._id === jobId
     );
   };
 
   return (
     <JobContext.Provider
       value={{
+        jobs,
+        featuredJobs,
+        totalJobs,
+        totalPages,
+        currentPage,
+        loading,
+        filters,
+        setFilters,
+        fetchJobs,
+        myApplications,
+        applicationMetrics,
+        fetchMyApplications,
+        applyToJob,
         registeredJobs,
         registerForJob,
         isRegistered,
@@ -55,16 +182,10 @@ export const JobProvider = ({ children }) => {
   );
 };
 
-// Custom hook using useContext
-// eslint-disable-next-line react-refresh/only-export-components
 export const useJobs = () => {
   const context = useContext(JobContext);
-
   if (!context) {
-    throw new Error(
-      'useJobs must be used inside JobProvider'
-    );
+    throw new Error('useJobs must be used inside JobProvider');
   }
-
   return context;
 };
