@@ -417,10 +417,18 @@ const JobDetailsPage = () => {
             {hasApplied ? (
               <button
                 disabled
-                className="rounded-xl bg-emerald-50 border border-emerald-200 px-7 py-3 text-sm font-bold text-emerald-700 cursor-not-allowed flex items-center gap-1.5"
+                className={`rounded-xl border px-7 py-3 text-sm font-bold cursor-not-allowed flex items-center gap-1.5 ${
+                  applicationStatus === 'Withdrawn'
+                    ? 'bg-slate-100 border-slate-200 text-slate-500'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                }`}
               >
-                <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                Applied ({applicationStatus || 'Under Review'})
+                <span className="material-symbols-outlined text-[18px]">
+                  {applicationStatus === 'Withdrawn' ? 'cancel' : 'check_circle'}
+                </span>
+                {applicationStatus === 'Withdrawn'
+                  ? 'Application Withdrawn'
+                  : `Applied (${applicationStatus || 'Under Review'})`}
               </button>
             ) : (
               <button

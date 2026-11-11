@@ -1,5 +1,8 @@
+import path from 'path';
+import fs from 'fs';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
+import Application from '../models/Application.js';
 
 // @desc    Update candidate/user profile
 // @route   PUT /api/users/profile
@@ -60,6 +63,88 @@ export const uploadResume = async (req, res, next) => {
       resumeUrl,
       resumeOriginalName,
       user,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Delete candidate resume from active profile
+// @route   DELETE /api/users/resume
+// @access  Private (Candidate)
+export const deleteResume = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found.',
+      });
+    }
+
+    if (!user.resumeUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'No resume is currently uploaded to delete.',
+      });
+    }
+
+    const currentResumeUrl = user.resumeUrl;
+
+    // Remove or clear the corresponding resume reference from the user's profile
+    user.resumeUrl = '';
+    user.resumeOriginalName = '';
+    await user.save();
+
+    // Check if this file is referenced in any historical application attachment
+    // If an application references this file, preserve it on disk!
+    const isReferencedInApplications = await Application.exists({
+      resumeUrl: currentResumeUrl,
+    });
+
+    // If NOT referenced by any application, safely delete the physical file from disk
+    if (!isReferencedInApplications) {
+      try {
+        const filename = path.basename(currentResumeUrl);
+        // Prevent directory traversal: filename must be a simple file basename
+        if (
+          filename &&
+          filename !== '.' &&
+          filename !== '..' &&
+          !filename.includes('/') &&
+          !filename.includes('\\')
+        ) {
+          const possibleDirs = [
+            process.env.UPLOAD_PATH ? path.resolve(process.env.UPLOAD_PATH) : null,
+            path.resolve('uploads'),
+            path.resolve('server/uploads'),
+          ].filter(Boolean);
+
+          for (const dir of possibleDirs) {
+            const filePath = path.join(dir, filename);
+            // Ensure resolved path stays strictly within the directory
+            if (filePath.startsWith(dir) && fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          }
+        }
+      } catch (fileErr) {
+        console.warn('Physical file deletion error (ignored for safety):', fileErr.message);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Resume deleted successfully from your profile.',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        resumeUrl: user.resumeUrl,
+        resumeOriginalName: user.resumeOriginalName,
+      },
     });
   } catch (err) {
     next(err);

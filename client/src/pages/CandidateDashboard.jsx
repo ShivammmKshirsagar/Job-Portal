@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useJobs } from '../context/JobContext';
@@ -6,12 +6,23 @@ import { useNotification } from '../context/NotificationContext';
 import { openFile } from '../services/fileService';
 
 const CandidateDashboard = () => {
-  const { user, uploadResume, updateProfile } = useAuth();
-  const { myApplications, applicationMetrics, fetchMyApplications } = useJobs();
+  const { user, uploadResume, deleteResume, updateProfile } = useAuth();
+  const { myApplications, applicationMetrics, fetchMyApplications, withdrawApplication } = useJobs();
   const { showToast } = useNotification();
 
   const [isUploading, setIsUploading] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+
+  // Application withdrawal state
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [appToWithdraw, setAppToWithdraw] = useState(null);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+
+  // Resume deletion state
+  const [isDeleteResumeModalOpen, setIsDeleteResumeModalOpen] = useState(false);
+  const [isDeletingResume, setIsDeletingResume] = useState(false);
+  const replaceResumeInputRef = useRef(null);
+
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     title: user?.title || '',
@@ -22,6 +33,9 @@ const CandidateDashboard = () => {
 
   // Calculate metrics derived strictly from authenticated user's actual database records
   const totalApps = applicationMetrics?.totalApps ?? myApplications.length ?? 0;
+  const activeApps =
+    applicationMetrics?.activeApps ??
+    myApplications.filter((app) => !['Withdrawn', 'Rejected'].includes(app.status)).length;
   const inReview = applicationMetrics?.inReview ?? 0;
   const interviews = applicationMetrics?.shortlisted ?? 0;
   const savedJobs = applicationMetrics?.savedJobs ?? 0;
@@ -71,6 +85,61 @@ const CandidateDashboard = () => {
       });
     } finally {
       setIsUploading(false);
+      if (replaceResumeInputRef.current) {
+        replaceResumeInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Open confirmation modal for withdrawing an application
+  const handleOpenWithdrawModal = (app) => {
+    setAppToWithdraw(app);
+    setIsWithdrawModalOpen(true);
+  };
+
+  // Confirm application withdrawal
+  const handleConfirmWithdraw = async () => {
+    if (!appToWithdraw) return;
+    setIsWithdrawing(true);
+    try {
+      await withdrawApplication(appToWithdraw._id);
+      showToast({
+        title: 'Application Withdrawn',
+        message: `Your application for ${appToWithdraw.jobId?.title || 'the role'} has been withdrawn.`,
+        type: 'success',
+      });
+      setIsWithdrawModalOpen(false);
+      setAppToWithdraw(null);
+    } catch (err) {
+      showToast({
+        title: 'Withdrawal Failed',
+        message: err.message || 'Could not withdraw application.',
+        type: 'error',
+      });
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  // Confirm resume deletion
+  const handleConfirmDeleteResume = async () => {
+    setIsDeletingResume(true);
+    try {
+      await deleteResume();
+      showToast({
+        title: 'Resume Deleted',
+        message: 'Your resume has been removed from your active profile.',
+        type: 'success',
+      });
+      setIsDeleteResumeModalOpen(false);
+    } catch (err) {
+      showToast({
+        title: 'Deletion Failed',
+        message: err.message || 'Could not delete resume.',
+        type: 'error',
+      });
+    } finally {
+      setIsDeletingResume(false);
     }
   };
 
@@ -115,6 +184,8 @@ const CandidateDashboard = () => {
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'Applied':
         return 'bg-slate-100 text-slate-700 border-slate-200';
+      case 'Withdrawn':
+        return 'bg-slate-100 text-slate-500 border-slate-200';
       case 'Rejected':
         return 'bg-red-50 text-red-700 border-red-200';
       default:
@@ -136,9 +207,9 @@ const CandidateDashboard = () => {
                 Welcome back, {user?.name?.split(' ')[0] || 'Candidate'}.
               </h1>
               <p className="mt-1 text-xs text-slate-500 max-w-xl">
-                {totalApps > 0
-                  ? `Track your ${totalApps} active ${
-                      totalApps === 1 ? 'application' : 'applications'
+                {activeApps > 0
+                  ? `Track your ${activeApps} active ${
+                      activeApps === 1 ? 'application' : 'applications'
                     }, interview progression, and recruiter responses below.`
                   : 'Welcome to your career hub. Start exploring open positions and track your applications in real time.'}
               </p>
@@ -147,7 +218,7 @@ const CandidateDashboard = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsEditProfileOpen(true)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition cursor-pointer"
               >
                 Edit Profile
               </button>
@@ -163,8 +234,11 @@ const CandidateDashboard = () => {
           {/* Metric Cards (Figure 8.4) */}
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
-              <span className="text-xs font-semibold text-slate-400">Total Apps</span>
-              <p className="mt-2 text-2xl font-black text-slate-900">{totalApps}</p>
+              <span className="text-xs font-semibold text-slate-400">Active Apps</span>
+              <div className="mt-2 flex items-baseline gap-1.5">
+                <p className="text-2xl font-black text-slate-900">{activeApps}</p>
+                <span className="text-[11px] font-semibold text-slate-400">({totalApps} total)</span>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
@@ -271,14 +345,39 @@ const CandidateDashboard = () => {
                               const targetUrl = empId
                                 ? `/messages?partnerId=${empId}&jobId=${app.jobId?._id}`
                                 : `/messages`;
+                              const isEligibleToWithdraw = [
+                                'Applied',
+                                'In Review',
+                                'Shortlisted',
+                                'Interview',
+                              ].includes(app.status);
+
                               return (
-                                <Link
-                                  to={targetUrl}
-                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 inline-block"
-                                  title="Message Recruiter"
-                                >
-                                  <span className="material-symbols-outlined text-[18px]">chat</span>
-                                </Link>
+                                <div className="flex items-center justify-end gap-1.5">
+                                  {isEligibleToWithdraw && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenWithdrawModal(app)}
+                                      className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 inline-flex items-center transition cursor-pointer"
+                                      title="Withdraw Application"
+                                      aria-label="Withdraw Application"
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">
+                                        cancel
+                                      </span>
+                                    </button>
+                                  )}
+                                  <Link
+                                    to={targetUrl}
+                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 inline-flex items-center transition"
+                                    title="Message Recruiter"
+                                    aria-label="Message Recruiter"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">
+                                      chat
+                                    </span>
+                                  </Link>
+                                </div>
                               );
                             })()}
                           </td>
@@ -326,47 +425,89 @@ const CandidateDashboard = () => {
                 <p className="text-xs text-slate-400">Current resume visible to recruiters</p>
               </div>
 
-              {user?.resumeUrl && (
-                <div className="flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50/40 p-3 text-xs">
+              {user?.resumeUrl ? (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-3.5 text-xs space-y-3">
                   <div className="flex items-center gap-2 truncate">
-                    <span className="material-symbols-outlined text-[18px] text-blue-600">
+                    <span className="material-symbols-outlined text-[20px] text-blue-600 shrink-0">
                       description
                     </span>
-                    <span className="font-bold text-slate-800 truncate">
+                    <span
+                      className="font-bold text-slate-800 truncate"
+                      title={user.resumeOriginalName || 'Candidate_Resume.pdf'}
+                    >
                       {user.resumeOriginalName || 'Candidate_Resume.pdf'}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openFile(user.resumeUrl, {
-                        filename: user.resumeOriginalName || 'Candidate_Resume.pdf',
-                      })
-                    }
-                    className="text-xs font-bold text-blue-600 hover:underline shrink-0 ml-2 bg-transparent border-0 cursor-pointer p-0"
-                  >
-                    View
-                  </button>
-                </div>
-              )}
 
-              {/* Drag & Drop Upload Container */}
-              <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/20 transition">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600 mb-2">
-                  <span className="material-symbols-outlined text-[22px]">cloud_upload</span>
+                  <div className="flex items-center justify-between pt-2.5 border-t border-blue-100/70">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openFile(user.resumeUrl, {
+                            filename: user.resumeOriginalName || 'Candidate_Resume.pdf',
+                          })
+                        }
+                        className="rounded-lg border border-blue-200 bg-white px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-50 transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                        aria-label="View Resume"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">visibility</span>
+                        View
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => replaceResumeInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer shadow-2xs disabled:opacity-50"
+                        aria-label="Replace Resume"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">sync</span>
+                        {isUploading ? 'Uploading...' : 'Replace'}
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsDeleteResumeModalOpen(true)}
+                      disabled={isUploading}
+                      className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-xs font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1 cursor-pointer shadow-2xs disabled:opacity-50"
+                      aria-label="Delete Resume"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">delete</span>
+                      Delete
+                    </button>
+                  </div>
+
+                  {/* Hidden file input for Replace action */}
+                  <input
+                    ref={replaceResumeInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleResumeUpload}
+                    disabled={isUploading}
+                    className="hidden"
+                  />
                 </div>
-                <p className="text-xs font-bold text-slate-700">
-                  {isUploading ? 'Uploading...' : 'Click to upload or drag and drop'}
-                </p>
-                <p className="text-[10px] text-slate-400 mt-1">PDF, DOCX up to 5MB</p>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={handleResumeUpload}
-                  disabled={isUploading}
-                  className="hidden"
-                />
-              </label>
+              ) : (
+                /* Drag & Drop Upload Container */
+                <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/20 transition">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600 mb-2">
+                    <span className="material-symbols-outlined text-[22px]">cloud_upload</span>
+                  </div>
+                  <p className="text-xs font-bold text-slate-700">
+                    {isUploading ? 'Uploading...' : 'Click to upload or drag and drop'}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-1">PDF, DOCX up to 5MB</p>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleResumeUpload}
+                    disabled={isUploading}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
 
             {/* Expand Your Network Banner (Figure 8.4) */}
@@ -471,6 +612,134 @@ const CandidateDashboard = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw Application Confirmation Modal */}
+      {isWithdrawModalOpen && appToWithdraw && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-50 text-amber-600">
+                <span className="material-symbols-outlined text-[22px]">warning</span>
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Withdraw Application</h3>
+                <p className="text-xs text-slate-400">Remove your application from consideration</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3 text-xs text-slate-600 leading-relaxed">
+              <p>
+                Are you sure you want to withdraw your application for{' '}
+                <strong className="text-slate-900">
+                  {appToWithdraw.jobId?.title || 'this role'}
+                </strong>{' '}
+                at{' '}
+                <strong className="text-slate-900">
+                  {appToWithdraw.jobId?.companyId?.name || 'the company'}
+                </strong>
+                ?
+              </p>
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 text-amber-800">
+                <p className="font-semibold">Important note:</p>
+                <p className="mt-0.5 text-[11px] text-amber-700">
+                  Withdrawing will remove your profile from active consideration by the hiring team.
+                  Your application record and history will be preserved as &quot;Withdrawn&quot;.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsWithdrawModalOpen(false);
+                  setAppToWithdraw(null);
+                }}
+                disabled={isWithdrawing}
+                className="rounded-xl px-4 py-2 font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Keep Application
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmWithdraw}
+                disabled={isWithdrawing}
+                className="rounded-xl bg-red-600 px-5 py-2 font-bold text-white hover:bg-red-700 shadow-sm transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                {isWithdrawing ? (
+                  <>
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                    <span>Withdrawing...</span>
+                  </>
+                ) : (
+                  'Confirm Withdrawal'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Resume Confirmation Modal */}
+      {isDeleteResumeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-red-50 text-red-600">
+                <span className="material-symbols-outlined text-[22px]">delete</span>
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Delete Profile Resume</h3>
+                <p className="text-xs text-slate-400">Remove resume from active profile</p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3 text-xs text-slate-600 leading-relaxed">
+              <p>
+                Are you sure you want to delete{' '}
+                <strong className="text-slate-900">
+                  {user?.resumeOriginalName || 'your current resume'}
+                </strong>{' '}
+                from your candidate profile?
+              </p>
+              <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-blue-800">
+                <p className="font-semibold text-blue-900">Attachment Safety Guarantee:</p>
+                <p className="mt-0.5 text-[11px] text-blue-700">
+                  Any applications you have previously submitted will safely preserve their attached
+                  resume copy for recruiter review. Only your active profile reference will be
+                  removed.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setIsDeleteResumeModalOpen(false)}
+                disabled={isDeletingResume}
+                className="rounded-xl px-4 py-2 font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteResume}
+                disabled={isDeletingResume}
+                className="rounded-xl bg-red-600 px-5 py-2 font-bold text-white hover:bg-red-700 shadow-sm transition disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                {isDeletingResume ? (
+                  <>
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  'Yes, Delete Resume'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

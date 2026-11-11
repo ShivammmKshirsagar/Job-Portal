@@ -4,6 +4,7 @@ import {
   getCandidateApplications,
   getJobApplications,
   updateApplicationStatus,
+  withdrawApplication,
 } from '../controllers/applicationController.js';
 import { protect } from '../middleware/auth.js';
 import { authorize } from '../middleware/role.js';
@@ -24,6 +25,20 @@ router.get(
   protect,
   authorize('candidate'),
   getCandidateApplications
+);
+
+router.patch(
+  '/:id/withdraw',
+  protect,
+  authorize('candidate'),
+  withdrawApplication
+);
+
+router.post(
+  '/:id/withdraw',
+  protect,
+  authorize('candidate'),
+  withdrawApplication
 );
 
 router.get(

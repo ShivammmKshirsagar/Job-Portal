@@ -719,18 +719,28 @@ const EmployerDashboard = () => {
                           </button>
                         )}
 
-                        <select
-                          value={app.status}
-                          onChange={(e) =>
-                            handleUpdateApplicantStatus(app._id, e.target.value)
-                          }
-                          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
-                        >
-                          <option value="Applied">Applied</option>
-                          <option value="In Review">In Review</option>
-                          <option value="Shortlisted">Shortlisted</option>
-                          <option value="Rejected">Rejected</option>
-                        </select>
+                        {app.status === 'Withdrawn' ? (
+                          <span
+                            className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500 inline-flex items-center gap-1"
+                            title="Candidate has withdrawn this application"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">cancel</span>
+                            Withdrawn
+                          </span>
+                        ) : (
+                          <select
+                            value={app.status}
+                            onChange={(e) =>
+                              handleUpdateApplicantStatus(app._id, e.target.value)
+                            }
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                          >
+                            <option value="Applied">Applied</option>
+                            <option value="In Review">In Review</option>
+                            <option value="Shortlisted">Shortlisted</option>
+                            <option value="Rejected">Rejected</option>
+                          </select>
+                        )}
 
                         <Link
                           to={`/messages?partnerId=${app.candidateId?._id || app.candidateId}&jobId=${selectedJobForApplicants?._id}`}

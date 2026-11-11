@@ -153,6 +153,23 @@ export const JobProvider = ({ children }) => {
     );
   };
 
+  // Withdraw a candidate application
+  const withdrawApplication = async (applicationId) => {
+    if (!isAuthenticated || user?.role !== 'candidate') return null;
+    try {
+      const res = await api.patch(`/applications/${applicationId}/withdraw`);
+      if (res.data?.success) {
+        await fetchMyApplications();
+        return res.data;
+      }
+    } catch (err) {
+      throw new Error(
+        err.response?.data?.message || err.message || 'Failed to withdraw application',
+        { cause: err }
+      );
+    }
+  };
+
   useEffect(() => {
     fetchFeaturedJobs();
   }, []);
@@ -231,6 +248,7 @@ export const JobProvider = ({ children }) => {
         toggleSaveJob,
         isJobSaved,
         applyToJob,
+        withdrawApplication,
         registeredJobs,
         registerForJob,
         isRegistered,

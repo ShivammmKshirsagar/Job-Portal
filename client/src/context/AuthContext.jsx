@@ -93,6 +93,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const deleteResume = async () => {
+    const res = await api.delete('/users/resume');
+    if (res.data.success) {
+      setUser(res.data.user);
+      localStorage.setItem('careerconnect_user', JSON.stringify(res.data.user));
+      return res.data;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -106,6 +115,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         updateProfile,
         uploadResume,
+        deleteResume,
       }}
     >
       {children}
