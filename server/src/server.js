@@ -27,6 +27,11 @@ validateJwtConfig();
 import { connectDB } from './config/db.js';
 import { initSocket } from './sockets/socketHandler.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import {
+  getUploadsDir,
+  ensureSampleResumesExist,
+  resolveOrRecoverFile,
+} from './utils/fileStorage.js';
 
 // Route imports
 import authRoutes from './routes/authRoutes.js';
@@ -147,19 +152,20 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth', authLimiter);
 
-// Serve uploaded resumes and attachments statically
-const uploadsDir = process.env.UPLOAD_PATH
-  ? path.resolve(process.env.UPLOAD_PATH)
-  : path.resolve(__dirname, '../uploads');
+// Serve uploaded resumes and attachments with unified path and persistent recovery
+const uploadsDir = getUploadsDir();
 
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// Ensure demo sample assets exist on disk at boot
+try {
+  ensureSampleResumesExist(uploadsDir);
+} catch (sampleErr) {
+  console.warn('[Server] Could not initialize sample resumes:', sampleErr.message);
 }
 
 // Upload Security: Protect user-uploaded private resumes and attachments
 // Public sample assets (sample_resume_*, Interview_Prep_Guide.pdf, .gitkeep) are accessible without auth.
 // Candidate and employer uploaded files require valid authentication via Cookie, Bearer Token, or query token.
-app.use('/uploads', (req, res, next) => {
+app.use('/uploads', async (req, res, next) => {
   const safePath = path.normalize(decodeURIComponent(req.path)).replace(/^(\.\.[\/\\])+/, '');
   const filename = path.basename(safePath);
 
@@ -169,42 +175,65 @@ app.use('/uploads', (req, res, next) => {
     filename.startsWith('Interview_Prep_') ||
     filename === '.gitkeep';
 
-  if (isPublicSample) {
+  if (!isPublicSample) {
+    // Check authentication for private uploaded documents
+    let token = null;
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required to access private candidate files and attachments.',
+      });
+    }
+
+    try {
+      const decoded = jwt.verify(token, getJwtSecret());
+      if (!decoded || !decoded.id) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid authentication token.',
+        });
+      }
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token for file access.',
+      });
+    }
+  }
+
+  // Check if file exists on disk
+  const filePath = path.join(uploadsDir, filename);
+  if (fs.existsSync(filePath)) {
     return next();
   }
 
-  // Check authentication for private uploaded documents
-  let token = null;
-  if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
-  } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-    token = req.headers.authorization.split(' ')[1];
-  } else if (req.query && req.query.token) {
-    token = req.query.token;
-  }
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required to access private candidate files and attachments.',
-    });
-  }
-
+  // File is missing from ephemeral container disk — attempt recovery from MongoDB / on-demand generation
   try {
-    const decoded = jwt.verify(token, getJwtSecret());
-    if (!decoded || !decoded.id) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid authentication token.',
+    const recovered = await resolveOrRecoverFile(filename);
+    if (recovered && recovered.data) {
+      res.set({
+        'Content-Type': recovered.contentType || 'application/pdf',
+        'Content-Disposition': `inline; filename="${recovered.originalName || filename}"`,
+        'Content-Length': recovered.data.length,
       });
+      return res.send(recovered.data);
     }
-    next();
-  } catch (err) {
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid or expired token for file access.',
-    });
+  } catch (recoverErr) {
+    console.warn('[Server] Error recovering file:', recoverErr.message);
   }
+
+  return res.status(404).json({
+    success: false,
+    message: 'Requested file was not found or is unavailable.',
+  });
 });
 app.use('/uploads', express.static(uploadsDir));
 

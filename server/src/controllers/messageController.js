@@ -6,6 +6,7 @@ import Job from '../models/Job.js';
 import Notification from '../models/Notification.js';
 import { getConversationRoom, getIO, emitNotification } from '../sockets/socketHandler.js';
 import { resolveEmployerForCompany } from './companyController.js';
+import { persistUploadedFile } from '../utils/fileStorage.js';
 
 // @desc    Initiate or retrieve an existing conversation with an employer or candidate
 // @route   POST /api/messages/conversations/initiate
@@ -375,6 +376,8 @@ export const sendMessage = async (req, res, next) => {
       attachmentName = req.file.originalname;
       const sizeInKb = Math.round(req.file.size / 1024);
       attachmentSize = sizeInKb > 1024 ? `${(sizeInKb / 1024).toFixed(1)} MB` : `${sizeInKb} KB`;
+      // Persist attachment buffer to MongoDB
+      await persistUploadedFile(req.file, senderId);
     }
 
     const message = await Message.create({

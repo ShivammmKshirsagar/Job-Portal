@@ -154,6 +154,7 @@ export const getJobById = async (req, res, next) => {
     // If user is authenticated, check if candidate already applied
     let hasApplied = false;
     let applicationStatus = null;
+    let canReapply = false;
     if (req.user && req.user.role === 'candidate') {
       const application = await Application.findOne({
         jobId: job._id,
@@ -162,6 +163,7 @@ export const getJobById = async (req, res, next) => {
       if (application) {
         hasApplied = true;
         applicationStatus = application.status;
+        canReapply = application.status === 'Withdrawn';
       }
     }
 
@@ -171,6 +173,7 @@ export const getJobById = async (req, res, next) => {
       relatedJobs,
       hasApplied,
       applicationStatus,
+      canReapply,
     });
   } catch (err) {
     next(err);

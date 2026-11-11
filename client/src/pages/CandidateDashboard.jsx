@@ -367,6 +367,18 @@ const CandidateDashboard = () => {
                                       </span>
                                     </button>
                                   )}
+                                  {app.status === 'Withdrawn' && (
+                                    <Link
+                                      to={`/jobs/${app.jobId?._id || app.jobId}`}
+                                      className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 inline-flex items-center transition"
+                                      title="Re-apply for this position"
+                                      aria-label="Re-apply for this position"
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">
+                                        replay
+                                      </span>
+                                    </Link>
+                                  )}
                                   <Link
                                     to={targetUrl}
                                     className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 inline-flex items-center transition"

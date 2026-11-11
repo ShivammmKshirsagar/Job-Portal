@@ -13,30 +13,11 @@ import { connectDB, closeDB } from '../config/db.js';
 
 dotenv.config();
 
+import { ensureSampleResumesExist as ensureSampleFiles, getUploadsDir } from '../utils/fileStorage.js';
+
 // Helper to ensure sample PDF resumes exist on disk
 export const ensureSampleResumesExist = () => {
-  const uploadsDir = path.resolve('uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-
-  const alexPdf = path.join(uploadsDir, 'sample_resume_alex_rivera.pdf');
-  if (!fs.existsSync(alexPdf)) {
-    const content = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length 130 >>\nstream\nBT\n/F1 18 Tf\n50 720 Td\n(Alex Rivera - Senior Frontend Engineer) Tj\n/F1 12 Tf\n0 -30 Td\n(Skills: React, TypeScript, Tailwind CSS, Next.js, Redux, GraphQL) Tj\nET\nendstream\nendobj\n5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000425 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n504\n%%EOF`;
-    fs.writeFileSync(alexPdf, content);
-  }
-
-  const davidPdf = path.join(uploadsDir, 'sample_resume_david_chen.pdf');
-  if (!fs.existsSync(davidPdf)) {
-    const content = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length 135 >>\nstream\nBT\n/F1 18 Tf\n50 720 Td\n(David Chen - Data Scientist & ML Engineer) Tj\n/F1 12 Tf\n0 -30 Td\n(Skills: Python, PyTorch, TensorFlow, SQL, FastAPI, Pandas) Tj\nET\nendstream\nendobj\n5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000430 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n509\n%%EOF`;
-    fs.writeFileSync(davidPdf, content);
-  }
-
-  const prepGuidePdf = path.join(uploadsDir, 'Interview_Prep_Guide.pdf');
-  if (!fs.existsSync(prepGuidePdf)) {
-    const content = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length 130 >>\nstream\nBT\n/F1 18 Tf\n50 720 Td\n(CareerConnect - Technical Interview Preparation Guide) Tj\n/F1 12 Tf\n0 -30 Td\n(Comprehensive preparation tips, coding exercises, and behavioral frameworks.) Tj\nET\nendstream\nendobj\n5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000425 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n504\n%%EOF`;
-    fs.writeFileSync(prepGuidePdf, content);
-  }
+  ensureSampleFiles(getUploadsDir());
 };
 
 export const seedDatabase = async () => {

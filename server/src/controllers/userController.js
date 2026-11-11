@@ -3,6 +3,8 @@ import fs from 'fs';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
 import Application from '../models/Application.js';
+import FileStorage from '../models/FileStorage.js';
+import { persistUploadedFile, getUploadsDir } from '../utils/fileStorage.js';
 
 // @desc    Update candidate/user profile
 // @route   PUT /api/users/profile
@@ -47,6 +49,9 @@ export const uploadResume = async (req, res, next) => {
 
     const resumeUrl = `/uploads/${req.file.filename}`;
     const resumeOriginalName = req.file.originalname;
+
+    // Persist file buffer to MongoDB Atlas for persistence across container restarts
+    await persistUploadedFile(req.file, req.user._id);
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -103,10 +108,13 @@ export const deleteResume = async (req, res, next) => {
       resumeUrl: currentResumeUrl,
     });
 
-    // If NOT referenced by any application, safely delete the physical file from disk
+    // If NOT referenced by any application, safely delete the physical file from disk & FileStorage
     if (!isReferencedInApplications) {
       try {
         const filename = path.basename(currentResumeUrl);
+        // Clean up from MongoDB FileStorage
+        await FileStorage.deleteOne({ filename });
+
         // Prevent directory traversal: filename must be a simple file basename
         if (
           filename &&
@@ -115,6 +123,12 @@ export const deleteResume = async (req, res, next) => {
           !filename.includes('/') &&
           !filename.includes('\\')
         ) {
+          const uploadsDir = getUploadsDir();
+          const filePath = path.join(uploadsDir, filename);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+
           const possibleDirs = [
             process.env.UPLOAD_PATH ? path.resolve(process.env.UPLOAD_PATH) : null,
             path.resolve('uploads'),
@@ -122,10 +136,9 @@ export const deleteResume = async (req, res, next) => {
           ].filter(Boolean);
 
           for (const dir of possibleDirs) {
-            const filePath = path.join(dir, filename);
-            // Ensure resolved path stays strictly within the directory
-            if (filePath.startsWith(dir) && fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
+            const extraPath = path.join(dir, filename);
+            if (extraPath.startsWith(dir) && fs.existsSync(extraPath)) {
+              fs.unlinkSync(extraPath);
             }
           }
         }

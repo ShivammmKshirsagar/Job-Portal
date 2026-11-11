@@ -6,6 +6,7 @@ import Job from '../models/Job.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { emitNotification } from '../sockets/socketHandler.js';
+import { persistUploadedFile, getUploadsDir } from '../utils/fileStorage.js';
 
 // @desc    Apply to a job
 // @route   POST /api/applications/:jobId
@@ -29,10 +30,10 @@ export const applyToJob = async (req, res, next) => {
       candidateId: req.user._id,
     });
 
-    if (existing) {
+    if (existing && existing.status !== 'Withdrawn') {
       return res.status(400).json({
         success: false,
-        message: 'You have already submitted an application for this position.',
+        message: 'You have already submitted an active application for this position.',
       });
     }
 
@@ -44,6 +45,9 @@ export const applyToJob = async (req, res, next) => {
       resumeUrl = `/uploads/${req.file.filename}`;
       resumeOriginalName = req.file.originalname;
 
+      // Persist uploaded file to MongoDB Atlas for persistence across restarts
+      await persistUploadedFile(req.file, req.user._id);
+
       // Update candidate's default resume if not set
       if (!req.user.resumeUrl) {
         req.user.resumeUrl = resumeUrl;
@@ -54,7 +58,9 @@ export const applyToJob = async (req, res, next) => {
       // If applying with profile resume, create an application-specific copy to decouple application attachment from profile resume
       try {
         const sourceBasename = path.basename(req.user.resumeUrl);
+        const uploadsDir = getUploadsDir();
         const possibleDirs = [
+          uploadsDir,
           process.env.UPLOAD_PATH ? path.resolve(process.env.UPLOAD_PATH) : null,
           path.resolve('uploads'),
           path.resolve('server/uploads'),
@@ -75,12 +81,53 @@ export const applyToJob = async (req, res, next) => {
       } catch (copyErr) {
         console.warn('Could not copy profile resume for application, using profile reference:', copyErr.message);
       }
+    } else if (existing && existing.resumeUrl) {
+      // Re-use candidate's previously submitted application resume
+      resumeUrl = existing.resumeUrl;
+      resumeOriginalName = existing.resumeOriginalName;
     }
 
     if (!resumeUrl) {
       return res.status(400).json({
         success: false,
         message: 'Please upload a resume or add a resume to your profile before applying.',
+      });
+    }
+
+    // If candidate previously withdrew this application, re-activate and update it
+    if (existing && existing.status === 'Withdrawn') {
+      existing.resumeUrl = resumeUrl;
+      existing.resumeOriginalName = resumeOriginalName || existing.resumeOriginalName || 'Candidate_Resume.pdf';
+      existing.coverNote = coverNote || '';
+      existing.portfolioUrl = portfolioUrl || '';
+      existing.status = 'Applied';
+      existing.appliedAt = new Date();
+      await existing.save();
+
+      // Notify the employer / job poster
+      if (job.postedBy) {
+        const notif = await Notification.create({
+          recipient: job.postedBy,
+          sender: req.user._id,
+          type: 'new_application',
+          title: 'Application Re-submitted',
+          message: `${req.user.name} has re-submitted their application for "${job.title}".`,
+          link: '/employer/dashboard',
+        });
+        emitNotification(job.postedBy, notif);
+      }
+
+      const populatedApp = await Application.findById(existing._id)
+        .populate({
+          path: 'jobId',
+          populate: { path: 'companyId' },
+        })
+        .populate('candidateId', 'name email avatar skills location');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Application re-submitted successfully!',
+        application: populatedApp,
       });
     }
 

@@ -66,11 +66,29 @@ export const openFile = async (url, { filename = 'document.pdf', download = fals
     return;
   }
 
+  // Pre-open preview tab synchronously to avoid browser popup blockers after async network request
+  let previewWindow = null;
+  if (!download && typeof window !== 'undefined') {
+    try {
+      previewWindow = window.open('about:blank', '_blank');
+      if (previewWindow) {
+        previewWindow.document.write(
+          '<!DOCTYPE html><html><head><title>Loading document...</title><style>body{font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#64748b;}p{font-size:14px;font-weight:600;}</style></head><body><p>Loading document preview...</p></body></html>'
+        );
+      }
+    } catch {
+      previewWindow = null;
+    }
+  }
+
   // 2. Private file: authenticated Axios fetch with JWT Bearer header
   try {
     const response = await api.get(fullUrl, {
       baseURL: '',
       responseType: 'blob',
+      headers: {
+        Accept: '*/*',
+      },
     });
 
     const contentType = response.headers['content-type'] || 'application/pdf';
@@ -84,8 +102,16 @@ export const openFile = async (url, { filename = 'document.pdf', download = fals
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+    } else if (previewWindow && !previewWindow.closed) {
+      previewWindow.location.href = blobUrl;
     } else {
-      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
     // Clean up temporary Blob URL after 60 seconds
@@ -94,10 +120,16 @@ export const openFile = async (url, { filename = 'document.pdf', download = fals
     }, 60000);
   } catch (error) {
     console.error('[FileService] Failed to load authenticated file:', error);
-    alert(
-      error.response?.status === 401
-        ? 'Authentication required to view this file. Please sign in.'
-        : 'Unable to open file. Please verify network connectivity or file availability.'
-    );
+    if (previewWindow && !previewWindow.closed) {
+      previewWindow.close();
+    }
+    const status = error.response?.status;
+    let message = 'Unable to open file. Please verify network connectivity or file availability.';
+    if (status === 401) {
+      message = 'Authentication required to view this file. Please sign in.';
+    } else if (status === 404) {
+      message = 'This document is no longer available on the server. Please re-upload or select an updated file.';
+    }
+    alert(message);
   }
 };

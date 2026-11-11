@@ -1,16 +1,11 @@
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
+import { getUploadsDir } from '../utils/fileStorage.js';
 
-const uploadsDir = path.resolve('uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Disk storage engine
+// Disk storage engine using unified uploads directory
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadsDir);
+    cb(null, getUploadsDir());
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname);

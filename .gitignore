@@ -27,10 +27,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Uploads & Persistent User Data (Keep folder structure only; ignore all files)
+# Uploads & Persistent User Data (Keep folder structure only; track sample assets)
 /uploads/
 server/uploads/*
 !server/uploads/.gitkeep
+!server/uploads/sample_resume_*.pdf
+!server/uploads/Interview_Prep_*.pdf
 data/
 
 # OS Metadata & System files

@@ -503,6 +503,123 @@ async function runTests() {
         jobDetailsPageSrc.includes('Application Withdrawn'),
       'JobDetailsPage handles Application Withdrawn status'
     );
+    assert(
+      jobDetailsPageSrc.includes('Apply Again') &&
+        jobDetailsPageSrc.includes('Re-apply for'),
+      'JobDetailsPage provides Apply Again action and Re-apply modal when application is Withdrawn'
+    );
+    assert(
+      candidateDashboardSrc.includes('Re-apply for this position'),
+      'CandidateDashboard provides direct Re-apply shortcut for Withdrawn applications'
+    );
+
+    // --- SECTION 6: Re-application Workflow & Persistent File Recovery ---
+    console.log('\n--- 6. Testing Re-application Workflow & Persistent File Recovery ---');
+
+    // 6A. Candidate A re-applies to withdrawn job (Job 1)
+    const reapplyRes = await request(
+      'POST',
+      `/applications/${job1._id}`,
+      tokenA,
+      {
+        coverNote: 'Updated cover letter following previous application withdrawal.',
+        portfolioUrl: 'https://alicerivera.dev/updated',
+      }
+    );
+
+    assert(reapplyRes.status === 200, 'Re-applying to a withdrawn job responds with HTTP 200');
+    assert(reapplyRes.data.success === true, 'Re-apply response indicates success: true');
+    assert(
+      reapplyRes.data.application?.status === 'Applied',
+      'Re-applied application status is restored to "Applied"'
+    );
+
+    const recheckApp = await Application.findById(app1._id);
+    assert(
+      recheckApp.status === 'Applied',
+      'Database record status is successfully updated from Withdrawn to Applied'
+    );
+    assert(
+      recheckApp.coverNote === 'Updated cover letter following previous application withdrawal.',
+      'Updated cover note is persisted on re-application'
+    );
+
+    // 6B. Attempting to re-apply while application is active is strictly blocked
+    const duplicateReapplyRes = await request(
+      'POST',
+      `/applications/${job1._id}`,
+      tokenA,
+      { coverNote: 'Duplicate attempt' }
+    );
+    assert(
+      duplicateReapplyRes.status === 400,
+      'Submitting duplicate application for active role is rejected with HTTP 400'
+    );
+
+    // 6C. File Recovery Test: Missing candidate file on disk recovered from database profile
+    const testRecoveryFilename = `resume-ephemeral-recovery-${Date.now()}.pdf`;
+    const jobRecovery = await Job.create({
+      title: `QA Engineer - File Recovery Suite ${Date.now()}`,
+      companyId: company._id,
+      postedBy: employer._id,
+      location: 'Hyderabad, Telangana',
+      jobType: 'Full-Time',
+      experienceLevel: 'Mid Level',
+      salaryMin: 1000000,
+      salaryMax: 1500000,
+      salaryPeriod: 'yearly',
+      salaryCurrency: 'INR',
+      description: 'Document recovery testing role.',
+      status: 'Active',
+    });
+
+    await Application.create({
+      jobId: jobRecovery._id,
+      candidateId: candidateA._id,
+      resumeUrl: `/uploads/${testRecoveryFilename}`,
+      resumeOriginalName: 'Candidate_Original_Upload.pdf',
+      status: 'Applied',
+    });
+
+    const fileRecoveryRes = await new Promise((resolve) => {
+      const parsedUrl = new URL(`http://127.0.0.1:${TEST_PORT}/uploads/${testRecoveryFilename}`);
+      const req = http.request(
+        {
+          hostname: parsedUrl.hostname,
+          port: parsedUrl.port,
+          path: parsedUrl.pathname,
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${tokenA}`,
+          },
+        },
+        (res) => {
+          const chunks = [];
+          res.on('data', (c) => chunks.push(c));
+          res.on('end', () => {
+            resolve({
+              status: res.statusCode,
+              headers: res.headers,
+              body: Buffer.concat(chunks),
+            });
+          });
+        }
+      );
+      req.end();
+    });
+
+    assert(
+      fileRecoveryRes.status === 200,
+      'Missing candidate file on disk is successfully recovered via persistent document recovery service (HTTP 200)'
+    );
+    assert(
+      fileRecoveryRes.headers['content-type'].includes('application/pdf'),
+      'Recovered candidate file is served with application/pdf Content-Type'
+    );
+    assert(
+      fileRecoveryRes.body.toString().startsWith('%PDF-1.4'),
+      'Recovered candidate document contains valid PDF 1.4 binary content'
+    );
 
   } catch (err) {
     console.error('Test execution error:', err);

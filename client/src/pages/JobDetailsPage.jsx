@@ -101,12 +101,13 @@ const JobDetailsPage = () => {
         resume: selectedResumeFile,
       });
 
+      const wasWithdrawn = applicationStatus === 'Withdrawn';
       setHasApplied(true);
       setApplicationStatus('Applied');
       setIsApplyModalOpen(false);
 
       showToast({
-        title: 'Application Submitted!',
+        title: wasWithdrawn ? 'Application Re-submitted!' : 'Application Submitted!',
         message: `Your application for ${job.title} was delivered to ${job.companyId?.name}.`,
         type: 'success',
       });
@@ -414,26 +415,37 @@ const JobDetailsPage = () => {
               <span className="material-symbols-outlined text-[18px] text-blue-600">chat</span>
               Message Employer
             </button>
-            {hasApplied ? (
+            {hasApplied && applicationStatus !== 'Withdrawn' ? (
               <button
                 disabled
-                className={`rounded-xl border px-7 py-3 text-sm font-bold cursor-not-allowed flex items-center gap-1.5 ${
-                  applicationStatus === 'Withdrawn'
-                    ? 'bg-slate-100 border-slate-200 text-slate-500'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                }`}
+                className="rounded-xl border border-emerald-200 bg-emerald-50 px-7 py-3 text-sm font-bold text-emerald-700 cursor-not-allowed flex items-center gap-1.5"
               >
-                <span className="material-symbols-outlined text-[18px]">
-                  {applicationStatus === 'Withdrawn' ? 'cancel' : 'check_circle'}
-                </span>
-                {applicationStatus === 'Withdrawn'
-                  ? 'Application Withdrawn'
-                  : `Applied (${applicationStatus || 'Under Review'})`}
+                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                Applied ({applicationStatus || 'Under Review'})
               </button>
+            ) : applicationStatus === 'Withdrawn' ? (
+              <div className="flex items-center gap-2">
+                <span
+                  className="rounded-xl border border-slate-200 bg-slate-100 px-3.5 py-3 text-xs font-bold text-slate-500 flex items-center gap-1.5"
+                  title="Your previous application was withdrawn"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-slate-400">cancel</span>
+                  Application Withdrawn
+                </span>
+                <button
+                  type="button"
+                  onClick={handleApplyClick}
+                  className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/20 hover:bg-blue-700 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[18px]">replay</span>
+                  Apply Again
+                </button>
+              </div>
             ) : (
               <button
+                type="button"
                 onClick={handleApplyClick}
-                className="rounded-xl bg-blue-600 px-8 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/20 hover:bg-blue-700 transition"
+                className="rounded-xl bg-blue-600 px-8 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/20 hover:bg-blue-700 transition cursor-pointer"
               >
                 Apply Now
               </button>
@@ -449,7 +461,9 @@ const JobDetailsPage = () => {
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-lg font-black text-slate-900">
-                  Apply for {job.title}
+                  {applicationStatus === 'Withdrawn'
+                    ? `Re-apply for ${job.title}`
+                    : `Apply for ${job.title}`}
                 </h3>
                 <p className="text-xs text-slate-500">{job.companyId?.name}</p>
               </div>
@@ -528,9 +542,13 @@ const JobDetailsPage = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                  className="rounded-xl bg-blue-600 px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                  {isSubmitting
+                    ? 'Submitting...'
+                    : applicationStatus === 'Withdrawn'
+                    ? 'Re-submit Application'
+                    : 'Submit Application'}
                 </button>
               </div>
             </form>
