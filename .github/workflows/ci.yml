@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   test-and-build:
@@ -16,11 +17,14 @@ jobs:
         image: mongo:8.0
         ports:
           - 27017:27017
+        env:
+          GLIBC_TUNABLES: glibc.pthread.rseq=1
         options: >-
-          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1})'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+          --health-start-period 15s
 
     steps:
       - name: Checkout Code
@@ -65,9 +69,12 @@ jobs:
           PORT: 5055
           NODE_ENV: test
           MONGODB_URI: mongodb://127.0.0.1:27017/careerconnect_test_db
-          JWT_SECRET: ci_test_jwt_secret_careerconnect_2026
+          TEST_MONGODB_URI: mongodb://127.0.0.1:27017/careerconnect_test_db
+          JWT_SECRET: ci-test-only-disposable-jwt-secret-minimum-32-chars-2026
+          JWT_EXPIRE: 7d
 
       - name: Validate Docker Compose Configuration
+        env:
+          JWT_SECRET: ci-only-validation-secret-do-not-use-in-production-2026
         run: |
-          docker compose config
-
+          docker compose config --quiet

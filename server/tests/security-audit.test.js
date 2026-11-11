@@ -44,7 +44,11 @@ import { getJwtSecret, validateJwtConfig } from '../src/config/jwt.js';
 
 // Enforce test environment and isolated test database
 process.env.NODE_ENV = 'test';
-const TEST_DB_URI = process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017/careerconnect_test_db';
+let testUri = process.env.TEST_MONGODB_URI || 'mongodb://127.0.0.1:27017/careerconnect_test_db';
+if (process.env.MONGODB_URI && process.env.MONGODB_URI.includes('careerconnect_test_db')) {
+  testUri = process.env.MONGODB_URI;
+}
+const TEST_DB_URI = testUri;
 process.env.MONGODB_URI = TEST_DB_URI;
 
 // Set explicit allowed origins for test
