@@ -293,19 +293,19 @@ const JobDetailsPage = () => {
                   <div>
                     <span className="text-slate-400 block font-semibold">Company Size</span>
                     <span className="text-slate-800 font-bold">
-                      {job.companyId.size || '500-1000 Employees'}
+                      {job.companyId.size || 'Not specified'}
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block font-semibold">Founded</span>
                     <span className="text-slate-800 font-bold">
-                      {job.companyId.foundedYear || 2015}
+                      {job.companyId.foundedYear || 'N/A'}
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block font-semibold">Location</span>
                     <span className="text-slate-800 font-bold truncate block">
-                      {job.companyId.location || 'Bengaluru, Karnataka'}
+                      {job.companyId.location || job.location || 'Not specified'}
                     </span>
                   </div>
                 </div>

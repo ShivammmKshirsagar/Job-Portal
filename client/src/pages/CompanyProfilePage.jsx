@@ -283,7 +283,7 @@ const CompanyProfilePage = () => {
                     </div>
                     <h4 className="font-bold text-slate-900 text-sm">Rapid Growth</h4>
                     <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                      Expanding our global footprint with over 200% YoY growth and a passionate customer base.
+                      Expanding our presence with ambitious product development and a passionate user community.
                     </p>
                   </div>
 
@@ -335,22 +335,26 @@ const CompanyProfilePage = () => {
                   <div className="divide-y divide-slate-100 text-xs">
                     <div className="py-2.5 flex justify-between">
                       <span className="text-slate-400">Founded</span>
-                      <span className="font-bold text-slate-800">{company.foundedYear || 2015}</span>
+                      <span className="font-bold text-slate-800">{company.foundedYear || 'Not specified'}</span>
                     </div>
                     <div className="py-2.5 flex justify-between">
                       <span className="text-slate-400">Funding Stage</span>
-                      <span className="font-bold text-slate-800">{company.stage || 'Series B'}</span>
+                      <span className="font-bold text-slate-800">{company.stage || 'Not specified'}</span>
                     </div>
                     <div className="py-2.5 flex justify-between">
                       <span className="text-slate-400">Website</span>
-                      <a
-                        href={company.website || '#'}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-bold text-blue-600 hover:underline"
-                      >
-                        {company.website?.replace('https://', '') || 'technova.io'}
-                      </a>
+                      {company.website ? (
+                        <a
+                          href={company.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-bold text-blue-600 hover:underline"
+                        >
+                          {company.website.replace(/^https?:\/\//, '')}
+                        </a>
+                      ) : (
+                        <span className="text-slate-400 font-medium">Not provided</span>
+                      )}
                     </div>
                   </div>
                 </div>

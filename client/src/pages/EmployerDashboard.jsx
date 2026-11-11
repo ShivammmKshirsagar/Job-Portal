@@ -10,6 +10,15 @@ const EmployerDashboard = () => {
   const { showToast } = useNotification();
 
   const [jobs, setJobs] = useState([]);
+  const [metrics, setMetrics] = useState({
+    totalPostings: 0,
+    activeJobs: 0,
+    totalApplicants: 0,
+    pendingApplicants: 0,
+    inReviewApplicants: 0,
+    shortlistedApplicants: 0,
+    rejectedApplicants: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   // Post / Edit Job modal state
@@ -41,6 +50,9 @@ const EmployerDashboard = () => {
       const res = await api.get('/jobs/employer/my-jobs');
       if (res.data.success) {
         setJobs(res.data.jobs);
+        if (res.data.metrics) {
+          setMetrics(res.data.metrics);
+        }
       }
     } catch (err) {
       console.error('Failed to load employer jobs:', err);
@@ -200,8 +212,11 @@ const EmployerDashboard = () => {
     }
   };
 
-  const totalApplicants = jobs.reduce((sum, j) => sum + (j.applicantCount || 0), 0);
-  const activeCount = jobs.filter((j) => j.status === 'Active').length;
+  const totalApplicants =
+    metrics.totalApplicants ?? jobs.reduce((sum, j) => sum + (j.applicantCount || 0), 0);
+  const activeCount = metrics.activeJobs ?? jobs.filter((j) => j.status === 'Active').length;
+  const shortlistedCount = metrics.shortlistedApplicants ?? 0;
+  const pendingCount = metrics.pendingApplicants ?? 0;
 
   return (
     <div className="min-h-screen bg-slate-50 py-8">
@@ -248,18 +263,19 @@ const EmployerDashboard = () => {
             <div className="mt-3 flex items-baseline justify-between">
               <span className="text-3xl font-black text-slate-900">{activeCount}</span>
               <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                Active
+                {activeCount > 0 ? 'Active' : 'Draft'}
               </span>
             </div>
-            {/* Sparkline simulation */}
-            <div className="mt-4 flex items-end gap-1 h-6">
-              {[40, 60, 50, 80, 70, 90, 85].map((h, i) => (
-                <div
-                  key={i}
-                  style={{ height: `${h}%` }}
-                  className="flex-1 rounded-xs bg-blue-100 hover:bg-blue-600 transition"
-                ></div>
-              ))}
+            <p className="mt-2 text-xs font-semibold text-slate-500">
+              {jobs.length} total job {jobs.length === 1 ? 'posting' : 'postings'}
+            </p>
+            <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                style={{
+                  width: `${jobs.length > 0 ? Math.round((activeCount / jobs.length) * 100) : 0}%`,
+                }}
+              ></div>
             </div>
           </div>
 
@@ -269,41 +285,61 @@ const EmployerDashboard = () => {
             </span>
             <div className="mt-3 flex items-baseline justify-between">
               <span className="text-3xl font-black text-slate-900">
-                {totalApplicants || 142}
+                {totalApplicants}
               </span>
-              <span className="text-xs font-bold text-emerald-600">
-                +18% vs last month
+              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                {pendingCount > 0 ? `${pendingCount} Pending` : 'Up to Date'}
               </span>
             </div>
-            {/* Sparkline simulation */}
-            <div className="mt-4 flex items-end gap-1 h-6">
-              {[30, 45, 60, 75, 65, 80, 95].map((h, i) => (
-                <div
-                  key={i}
-                  style={{ height: `${h}%` }}
-                  className="flex-1 rounded-xs bg-emerald-100 hover:bg-emerald-600 transition"
-                ></div>
-              ))}
+            <p className="mt-2 text-xs font-semibold text-slate-500">
+              {pendingCount > 0
+                ? `${pendingCount} awaiting initial review`
+                : totalApplicants > 0
+                ? 'All applications reviewed'
+                : 'No applicants yet'}
+            </p>
+            <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full bg-emerald-600 rounded-full transition-all duration-300"
+                style={{
+                  width: `${
+                    totalApplicants > 0
+                      ? Math.round(((totalApplicants - pendingCount) / totalApplicants) * 100)
+                      : 0
+                  }%`,
+                }}
+              ></div>
             </div>
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Interviews Conducted
+              Shortlisted Candidates
             </span>
             <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-3xl font-black text-slate-900">28</span>
-              <span className="text-xs font-bold text-slate-500">Scheduled</span>
+              <span className="text-3xl font-black text-slate-900">
+                {shortlistedCount}
+              </span>
+              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                Pipeline
+              </span>
             </div>
-            {/* Sparkline simulation */}
-            <div className="mt-4 flex items-end gap-1 h-6">
-              {[20, 30, 40, 50, 45, 60, 70].map((h, i) => (
-                <div
-                  key={i}
-                  style={{ height: `${h}%` }}
-                  className="flex-1 rounded-xs bg-indigo-100 hover:bg-indigo-600 transition"
-                ></div>
-              ))}
+            <p className="mt-2 text-xs font-semibold text-slate-500">
+              {shortlistedCount > 0
+                ? `${shortlistedCount} candidate${shortlistedCount > 1 ? 's' : ''} qualified for interview`
+                : 'No candidates shortlisted yet'}
+            </p>
+            <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                style={{
+                  width: `${
+                    totalApplicants > 0
+                      ? Math.round((shortlistedCount / totalApplicants) * 100)
+                      : 0
+                  }%`,
+                }}
+              ></div>
             </div>
           </div>
         </div>

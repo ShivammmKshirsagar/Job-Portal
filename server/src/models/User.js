@@ -66,6 +66,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    savedJobs: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Job' }],
+      default: [],
+    },
     status: {
       type: String,
       enum: ['active', 'banned'],

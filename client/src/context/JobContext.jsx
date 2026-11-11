@@ -17,12 +17,13 @@ export const JobProvider = ({ children }) => {
   const [jobs, setJobs] = useState([]);
   const [featuredJobs, setFeaturedJobs] = useState([]);
   const [myApplications, setMyApplications] = useState([]);
+  const [savedJobs, setSavedJobs] = useState([]);
   const [applicationMetrics, setApplicationMetrics] = useState({
     totalApps: 0,
     inReview: 0,
     shortlisted: 0,
     rejected: 0,
-    savedJobs: 8,
+    savedJobs: 0,
   });
   const [totalJobs, setTotalJobs] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -110,6 +111,48 @@ export const JobProvider = ({ children }) => {
     }
   }, [isAuthenticated, user?.role]);
 
+  // Fetch candidate's saved jobs from backend
+  const fetchSavedJobs = useCallback(async () => {
+    if (!isAuthenticated || user?.role !== 'candidate') return;
+    try {
+      const res = await api.get('/users/saved-jobs');
+      if (res.data.success) {
+        setSavedJobs(res.data.savedJobs || []);
+        setApplicationMetrics((prev) => ({
+          ...prev,
+          savedJobs: res.data.count || 0,
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching saved jobs:', err);
+    }
+  }, [isAuthenticated, user?.role]);
+
+  // Toggle save/unsave a job
+  const toggleSaveJob = async (jobId) => {
+    if (!isAuthenticated || user?.role !== 'candidate') return false;
+    try {
+      const res = await api.post(`/users/saved-jobs/${jobId}`);
+      if (res.data.success) {
+        setApplicationMetrics((prev) => ({
+          ...prev,
+          savedJobs: res.data.savedJobsCount,
+        }));
+        await fetchSavedJobs();
+        return res.data.isSaved;
+      }
+    } catch (err) {
+      console.error('Error saving job:', err);
+      return false;
+    }
+  };
+
+  const isJobSaved = (jobId) => {
+    return savedJobs.some(
+      (j) => (j._id || j.id || j).toString() === jobId.toString()
+    );
+  };
+
   useEffect(() => {
     fetchFeaturedJobs();
   }, []);
@@ -118,11 +161,23 @@ export const JobProvider = ({ children }) => {
     fetchJobs();
   }, [fetchJobs]);
 
+  // Reset or load candidate-specific records on authentication change
   useEffect(() => {
     if (isAuthenticated && user?.role === 'candidate') {
       fetchMyApplications();
+      fetchSavedJobs();
+    } else {
+      setMyApplications([]);
+      setSavedJobs([]);
+      setApplicationMetrics({
+        totalApps: 0,
+        inReview: 0,
+        shortlisted: 0,
+        rejected: 0,
+        savedJobs: 0,
+      });
     }
-  }, [isAuthenticated, user?.role, fetchMyApplications]);
+  }, [isAuthenticated, user?._id, user?.role, fetchMyApplications, fetchSavedJobs]);
 
   // Apply to job
   const applyToJob = async (jobId, { coverNote = '', portfolioUrl = '', resume = null } = {}) => {
@@ -171,6 +226,10 @@ export const JobProvider = ({ children }) => {
         myApplications,
         applicationMetrics,
         fetchMyApplications,
+        savedJobs,
+        fetchSavedJobs,
+        toggleSaveJob,
+        isJobSaved,
         applyToJob,
         registeredJobs,
         registerForJob,

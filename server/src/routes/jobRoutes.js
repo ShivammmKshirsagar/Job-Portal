@@ -9,6 +9,7 @@ import {
   deleteJob,
   toggleJobStatus,
   getEmployerJobs,
+  getPublicStats,
 } from '../controllers/jobController.js';
 import { protect, optionalAuth } from '../middleware/auth.js';
 import { authorize } from '../middleware/role.js';
@@ -18,6 +19,7 @@ const router = express.Router();
 
 router.get('/', getJobs);
 router.get('/featured', getFeaturedJobs);
+router.get('/public-stats', getPublicStats);
 router.get('/employer/my-jobs', protect, authorize('employer', 'admin'), getEmployerJobs);
 router.get('/:id', optionalAuth, getJobById);
 

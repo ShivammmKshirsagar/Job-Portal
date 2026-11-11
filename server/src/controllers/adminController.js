@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Company from '../models/Company.js';
 import Job from '../models/Job.js';
@@ -17,11 +18,13 @@ export const getAdminStats = async (req, res, next) => {
     const totalApplications = await Application.countDocuments();
     const totalCompanies = await Company.countDocuments();
 
+    const isDbConnected = mongoose.connection.readyState === 1;
+
     res.status(200).json({
       success: true,
       stats: {
-        systemHealth: 'Stable',
-        healthDetail: 'All Systems Operational',
+        systemHealth: isDbConnected ? 'Healthy' : 'Degraded',
+        healthDetail: isDbConnected ? 'Database Connected' : 'Database Disconnected',
         totalUsers,
         totalEmployers,
         totalCandidates,

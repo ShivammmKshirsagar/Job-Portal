@@ -6,12 +6,15 @@ const AdminDashboard = () => {
   const { showToast } = useNotification();
 
   const [stats, setStats] = useState({
-    systemHealth: 'Stable',
-    healthDetail: 'All Systems Operational',
-    totalUsers: '1.2M',
-    totalEmployers: '45k',
-    totalJobs: '120k',
-    totalApplications: 342,
+    systemHealth: 'Healthy',
+    healthDetail: 'Database Connected',
+    totalUsers: 0,
+    totalEmployers: 0,
+    totalCandidates: 0,
+    totalJobs: 0,
+    activeJobs: 0,
+    totalApplications: 0,
+    totalCompanies: 0,
   });
 
   const [moderationTab, setModerationTab] = useState('users'); // 'users' or 'companies'
@@ -180,10 +183,10 @@ const AdminDashboard = () => {
               </span>
             </div>
             <p className="mt-3 text-2xl font-black text-slate-900">
-              {stats.systemHealth || 'Stable'}
+              {stats.systemHealth || 'Healthy'}
             </p>
             <p className="text-[11px] font-semibold text-emerald-600 mt-1">
-              ✓ {stats.healthDetail || 'All Systems Operational'}
+              ✓ {stats.healthDetail || 'Database Connected'}
             </p>
           </div>
 
@@ -192,10 +195,10 @@ const AdminDashboard = () => {
               Total Users
             </span>
             <p className="mt-3 text-2xl font-black text-slate-900">
-              {stats.totalUsers > 1000 ? `${(stats.totalUsers / 1000).toFixed(1)}k` : stats.totalUsers || '1.2M'}
+              {stats.totalUsers > 1000 ? `${(stats.totalUsers / 1000).toFixed(1)}k` : stats.totalUsers ?? 0}
             </p>
             <p className="text-[11px] font-semibold text-blue-600 mt-1">
-              +12% MoM growth
+              {stats.totalCandidates ?? 0} candidates registered
             </p>
           </div>
 
@@ -204,10 +207,10 @@ const AdminDashboard = () => {
               Active Employers
             </span>
             <p className="mt-3 text-2xl font-black text-slate-900">
-              {stats.totalEmployers || '45k'}
+              {stats.totalEmployers ?? 0}
             </p>
             <p className="text-[11px] font-semibold text-emerald-600 mt-1">
-              +8% new this week
+              {stats.totalCompanies ?? 0} companies registered
             </p>
           </div>
 
@@ -216,10 +219,10 @@ const AdminDashboard = () => {
               Total Listings
             </span>
             <p className="mt-3 text-2xl font-black text-slate-900">
-              {stats.totalJobs || '120k'}
+              {stats.totalJobs ?? 0}
             </p>
             <p className="text-[11px] font-semibold text-slate-400 mt-1">
-              {stats.activeJobs || 12} currently active
+              {stats.activeJobs ?? 0} currently active
             </p>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import Job from '../models/Job.js';
 import Application from '../models/Application.js';
 import Company from '../models/Company.js';
+import User from '../models/User.js';
 
 // @desc    Get all jobs with search, filtering, sorting and pagination
 // @route   GET /api/jobs
@@ -330,21 +331,65 @@ export const getEmployerJobs = async (req, res, next) => {
       .populate('companyId')
       .sort({ createdAt: -1 });
 
+    const jobIds = jobs.map((j) => j._id);
+    const applications = await Application.find({ jobId: { $in: jobIds } });
+
+    const totalPostings = jobs.length;
+    const activeJobs = jobs.filter((j) => j.status === 'Active').length;
+    const totalApplicants = applications.length;
+    const pendingApplicants = applications.filter((a) => a.status === 'Applied').length;
+    const inReviewApplicants = applications.filter((a) => a.status === 'In Review').length;
+    const shortlistedApplicants = applications.filter((a) => a.status === 'Shortlisted').length;
+    const rejectedApplicants = applications.filter((a) => a.status === 'Rejected').length;
+
     // Attach applicant count to each job
-    const jobsWithCounts = await Promise.all(
-      jobs.map(async (job) => {
-        const applicantCount = await Application.countDocuments({ jobId: job._id });
-        return {
-          ...job.toObject(),
-          applicantCount,
-        };
-      })
-    );
+    const jobsWithCounts = jobs.map((job) => {
+      const applicantCount = applications.filter(
+        (a) => a.jobId.toString() === job._id.toString()
+      ).length;
+      return {
+        ...job.toObject(),
+        applicantCount,
+      };
+    });
 
     res.status(200).json({
       success: true,
       count: jobsWithCounts.length,
+      metrics: {
+        totalPostings,
+        activeJobs,
+        totalApplicants,
+        pendingApplicants,
+        inReviewApplicants,
+        shortlistedApplicants,
+        rejectedApplicants,
+      },
       jobs: jobsWithCounts,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get public platform statistics for homepage
+// @route   GET /api/jobs/public-stats
+// @access  Public
+export const getPublicStats = async (req, res, next) => {
+  try {
+    const activeJobs = await Job.countDocuments({ status: 'Active' });
+    const hiringCompanies = await Company.countDocuments({ status: 'active' });
+    const totalCandidates = await User.countDocuments({ role: 'candidate' });
+    const totalApplications = await Application.countDocuments();
+
+    res.status(200).json({
+      success: true,
+      stats: {
+        activeJobs,
+        hiringCompanies,
+        totalCandidates,
+        totalApplications,
+      },
     });
   } catch (err) {
     next(err);

@@ -8,6 +8,11 @@ const HomePage = () => {
   const [locationTerm, setLocationTerm] = useState('');
   const [featuredJobs, setFeaturedJobs] = useState([]);
   const [topCompanies, setTopCompanies] = useState([]);
+  const [publicStats, setPublicStats] = useState({
+    activeJobs: 0,
+    hiringCompanies: 0,
+    totalCandidates: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
@@ -15,16 +20,20 @@ const HomePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [jobsRes, companiesRes] = await Promise.all([
+        const [jobsRes, companiesRes, statsRes] = await Promise.all([
           api.get('/jobs/featured'),
           api.get('/companies/top-hiring'),
+          api.get('/jobs/public-stats').catch(() => ({ data: { success: false } })),
         ]);
 
-        if (jobsRes.data.success) {
+        if (jobsRes.data?.success) {
           setFeaturedJobs(jobsRes.data.jobs);
         }
-        if (companiesRes.data.success) {
+        if (companiesRes.data?.success) {
           setTopCompanies(companiesRes.data.companies);
+        }
+        if (statsRes.data?.success && statsRes.data.stats) {
+          setPublicStats(statsRes.data.stats);
         }
       } catch (err) {
         console.error('Failed to load homepage data:', err);
@@ -101,23 +110,29 @@ const HomePage = () => {
           {/* Quick Metrics Cards */}
           <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-              <p className="text-2xl font-black text-slate-900 sm:text-3xl">10,000+</p>
+              <p className="text-2xl font-black text-slate-900 sm:text-3xl">
+                {publicStats.activeJobs > 0 ? `${publicStats.activeJobs}+` : 0}
+              </p>
               <p className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-400">
                 Active Jobs
               </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-              <p className="text-2xl font-black text-slate-900 sm:text-3xl">2,500+</p>
+              <p className="text-2xl font-black text-slate-900 sm:text-3xl">
+                {publicStats.hiringCompanies > 0 ? `${publicStats.hiringCompanies}+` : 0}
+              </p>
               <p className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-400">
                 Hiring Companies
               </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-              <p className="text-2xl font-black text-slate-900 sm:text-3xl">500k+</p>
+              <p className="text-2xl font-black text-slate-900 sm:text-3xl">
+                {publicStats.totalCandidates > 0 ? `${publicStats.totalCandidates}+` : 0}
+              </p>
               <p className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-400">
-                Successful Placements
+                Registered Candidates
               </p>
             </div>
           </div>

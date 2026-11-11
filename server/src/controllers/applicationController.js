@@ -1,5 +1,6 @@
 import Application from '../models/Application.js';
 import Job from '../models/Job.js';
+import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { emitNotification } from '../sockets/socketHandler.js';
 
@@ -106,11 +107,17 @@ export const getCandidateApplications = async (req, res, next) => {
       })
       .sort({ appliedAt: -1 });
 
-    // Calculate metrics for dashboard
+    // Calculate metrics for dashboard from authenticated user's actual records
     const totalApps = applications.length;
     const inReview = applications.filter((app) => app.status === 'In Review').length;
-    const shortlisted = applications.filter((app) => app.status === 'Shortlisted').length;
+    const shortlisted = applications.filter(
+      (app) => app.status === 'Shortlisted' || app.status === 'Interview'
+    ).length;
     const rejected = applications.filter((app) => app.status === 'Rejected').length;
+
+    // Fetch actual saved jobs count for this authenticated candidate
+    const candidateUser = await User.findById(req.user._id).select('savedJobs');
+    const savedJobs = Array.isArray(candidateUser?.savedJobs) ? candidateUser.savedJobs.length : 0;
 
     res.status(200).json({
       success: true,
@@ -119,7 +126,7 @@ export const getCandidateApplications = async (req, res, next) => {
         inReview,
         shortlisted,
         rejected,
-        savedJobs: 8, // sample saved jobs metric
+        savedJobs,
       },
       applications,
     });

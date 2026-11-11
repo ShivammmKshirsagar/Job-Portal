@@ -233,12 +233,7 @@ const JobListings = () => {
                   Job Type
                 </h4>
                 <div className="space-y-2.5">
-                  {[
-                    { label: 'Full-Time', count: '2,451' },
-                    { label: 'Contract', count: '842' },
-                    { label: 'Part-Time', count: '320' },
-                    { label: 'Remote', count: '1,120' },
-                  ].map(({ label }) => (
+                  {['Full-Time', 'Contract', 'Part-Time', 'Remote'].map((label) => (
                     <label
                       key={label}
                       className="flex items-center justify-between text-sm text-slate-700 cursor-pointer hover:text-blue-600"

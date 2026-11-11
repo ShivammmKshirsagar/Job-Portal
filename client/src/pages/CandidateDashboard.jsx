@@ -20,6 +20,24 @@ const CandidateDashboard = () => {
     skills: user?.skills?.join(', ') || '',
   });
 
+  // Calculate metrics derived strictly from authenticated user's actual database records
+  const totalApps = applicationMetrics?.totalApps ?? myApplications.length ?? 0;
+  const inReview = applicationMetrics?.inReview ?? 0;
+  const interviews = applicationMetrics?.shortlisted ?? 0;
+  const savedJobs = applicationMetrics?.savedJobs ?? 0;
+
+  // Compute profile strength based on candidate profile completeness
+  const profileStrength = (() => {
+    let score = 0;
+    if (user?.name) score += 20;
+    if (user?.title) score += 15;
+    if (user?.location) score += 15;
+    if (user?.bio) score += 15;
+    if (user?.skills?.length > 0) score += 15;
+    if (user?.resumeUrl) score += 20;
+    return score;
+  })();
+
   useEffect(() => {
     fetchMyApplications();
   }, [fetchMyApplications]);
@@ -118,7 +136,11 @@ const CandidateDashboard = () => {
                 Welcome back, {user?.name?.split(' ')[0] || 'Candidate'}.
               </h1>
               <p className="mt-1 text-xs text-slate-500 max-w-xl">
-                Your application activity has increased by 14% this week. Companies are actively reviewing your profile.
+                {totalApps > 0
+                  ? `Track your ${totalApps} active ${
+                      totalApps === 1 ? 'application' : 'applications'
+                    }, interview progression, and recruiter responses below.`
+                  : 'Welcome to your career hub. Start exploring open positions and track your applications in real time.'}
               </p>
             </div>
 
@@ -142,30 +164,22 @@ const CandidateDashboard = () => {
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
               <span className="text-xs font-semibold text-slate-400">Total Apps</span>
-              <p className="mt-2 text-2xl font-black text-slate-900">
-                {applicationMetrics?.totalApps || myApplications.length || 12}
-              </p>
+              <p className="mt-2 text-2xl font-black text-slate-900">{totalApps}</p>
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
               <span className="text-xs font-semibold text-slate-400">In Review</span>
-              <p className="mt-2 text-2xl font-black text-amber-600">
-                {applicationMetrics?.inReview || 4}
-              </p>
+              <p className="mt-2 text-2xl font-black text-amber-600">{inReview}</p>
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-blue-50/50 p-4 border-blue-100">
               <span className="text-xs font-bold text-blue-700">Interviews</span>
-              <p className="mt-2 text-2xl font-black text-blue-700">
-                {applicationMetrics?.shortlisted || 2}
-              </p>
+              <p className="mt-2 text-2xl font-black text-blue-700">{interviews}</p>
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4">
               <span className="text-xs font-semibold text-slate-400">Saved Jobs</span>
-              <p className="mt-2 text-2xl font-black text-slate-900">
-                {applicationMetrics?.savedJobs || 8}
-              </p>
+              <p className="mt-2 text-2xl font-black text-slate-900">{savedJobs}</p>
             </div>
           </div>
         </div>
@@ -275,19 +289,22 @@ const CandidateDashboard = () => {
                   <h3 className="text-sm font-black text-slate-900">Profile Strength</h3>
                   <p className="text-xs text-slate-400">Stand out to recruiters</p>
                 </div>
-                <span className="text-lg font-black text-blue-600">85%</span>
+                <span className="text-lg font-black text-blue-600">{profileStrength}%</span>
               </div>
 
               {/* Progress bar */}
               <div className="mt-3 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div className="h-full bg-blue-600 rounded-full w-[85%]"></div>
+                <div
+                  className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                  style={{ width: `${profileStrength}%` }}
+                ></div>
               </div>
 
               <button
                 onClick={() => setIsEditProfileOpen(true)}
                 className="mt-4 w-full rounded-xl border border-slate-200 bg-white py-2 text-center text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
               >
-                Add Portfolio Link ⊕
+                {profileStrength === 100 ? 'Edit Profile Details' : 'Complete Profile ⊕'}
               </button>
             </div>
 
@@ -305,14 +322,14 @@ const CandidateDashboard = () => {
                       description
                     </span>
                     <span className="font-bold text-slate-800 truncate">
-                      {user.resumeOriginalName || 'Alex_Rivera_Resume.pdf'}
+                      {user.resumeOriginalName || 'Candidate_Resume.pdf'}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() =>
                       openFile(user.resumeUrl, {
-                        filename: user.resumeOriginalName || 'Alex_Rivera_Resume.pdf',
+                        filename: user.resumeOriginalName || 'Candidate_Resume.pdf',
                       })
                     }
                     className="text-xs font-bold text-blue-600 hover:underline shrink-0 ml-2 bg-transparent border-0 cursor-pointer p-0"

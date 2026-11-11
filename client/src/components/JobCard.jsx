@@ -6,11 +6,12 @@ import { formatJobSalary } from '../utils/salary';
 
 const JobCard = ({ job, _onRegistered }) => {
   const navigate = useNavigate();
-  const { isRegistered } = useJobs();
+  const { isRegistered, toggleSaveJob, isJobSaved } = useJobs();
   const { isAuthenticated, role } = useAuth();
 
   const jobId = job._id || job.id;
   const registered = isRegistered(jobId);
+  const saved = isJobSaved ? isJobSaved(jobId) : false;
 
   const companyName = job.companyId?.name || job.company || 'Company';
   const companyLogo = job.companyId?.logoUrl || job.logo || null;
@@ -87,13 +88,30 @@ const JobCard = ({ job, _onRegistered }) => {
               </span>
             )}
             <button
-              onClick={(e) => {
+              type="button"
+              onClick={async (e) => {
                 e.stopPropagation();
+                if (!isAuthenticated) {
+                  navigate('/auth?mode=login', { state: { from: `/jobs/${jobId}` } });
+                  return;
+                }
+                if (role === 'candidate' && toggleSaveJob) {
+                  await toggleSaveJob(jobId);
+                }
               }}
-              className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition"
-              title="Save Job"
+              className={`grid h-8 w-8 place-items-center rounded-full transition cursor-pointer ${
+                saved
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-slate-400 hover:bg-slate-100 hover:text-blue-600'
+              }`}
+              title={saved ? 'Remove from Saved Jobs' : 'Save Job'}
             >
-              <span className="material-symbols-outlined text-[18px]">bookmark</span>
+              <span
+                className="material-symbols-outlined text-[18px]"
+                style={saved ? { fontVariationSettings: "'FILL' 1" } : {}}
+              >
+                bookmark
+              </span>
             </button>
           </div>
         </div>
