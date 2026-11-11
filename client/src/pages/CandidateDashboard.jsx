@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useJobs } from '../context/JobContext';
 import { useNotification } from '../context/NotificationContext';
+import { openFile } from '../services/fileService';
 
 const CandidateDashboard = () => {
   const { user, uploadResume, updateProfile } = useAuth();
@@ -307,14 +308,17 @@ const CandidateDashboard = () => {
                       {user.resumeOriginalName || 'Alex_Rivera_Resume.pdf'}
                     </span>
                   </div>
-                  <a
-                    href={user.resumeUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-bold text-blue-600 hover:underline shrink-0 ml-2"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openFile(user.resumeUrl, {
+                        filename: user.resumeOriginalName || 'Alex_Rivera_Resume.pdf',
+                      })
+                    }
+                    className="text-xs font-bold text-blue-600 hover:underline shrink-0 ml-2 bg-transparent border-0 cursor-pointer p-0"
                   >
                     View
-                  </a>
+                  </button>
                 </div>
               )}
 

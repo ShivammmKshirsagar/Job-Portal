@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import { openFile } from '../services/fileService';
 
 const EmployerDashboard = () => {
   const { user } = useAuth();
@@ -667,14 +668,17 @@ const EmployerDashboard = () => {
 
                       <div className="flex items-center gap-3">
                         {app.resumeUrl && (
-                          <a
-                            href={app.resumeUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-slate-50"
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openFile(app.resumeUrl, {
+                                filename: app.resumeOriginalName || 'Candidate_Resume.pdf',
+                              })
+                            }
+                            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-slate-50 cursor-pointer"
                           >
                             View Resume
-                          </a>
+                          </button>
                         )}
 
                         <select

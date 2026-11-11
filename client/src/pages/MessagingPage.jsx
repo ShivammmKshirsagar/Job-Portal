@@ -4,6 +4,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useNotification } from '../context/NotificationContext';
+import { openFile } from '../services/fileService';
 
 const MessagingPage = () => {
   const [searchParams] = useSearchParams();
@@ -491,19 +492,23 @@ const MessagingPage = () => {
                                 </span>
                               </div>
                             </div>
-                            <a
-                              href={msg.attachmentUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
-                              className={`rounded-lg p-1.5 transition ${
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openFile(msg.attachmentUrl, {
+                                  filename: msg.attachmentName || 'Attachment.pdf',
+                                  download: true,
+                                })
+                              }
+                              className={`rounded-lg p-1.5 transition cursor-pointer border-0 bg-transparent text-inherit ${
                                 isMine ? 'hover:bg-blue-800' : 'hover:bg-slate-200'
                               }`}
+                              title="Download attachment"
                             >
                               <span className="material-symbols-outlined text-[18px]">
                                 download
                               </span>
-                            </a>
+                            </button>
                           </div>
                         )}
                       </div>
