@@ -733,13 +733,14 @@ const EmployerDashboard = () => {
                         </select>
 
                         <Link
-                          to={`/messages`}
-                          className="rounded-xl bg-blue-50 p-2 text-blue-600 hover:bg-blue-100"
+                          to={`/messages?partnerId=${app.candidateId?._id || app.candidateId}&jobId=${selectedJobForApplicants?._id}`}
+                          className="flex items-center gap-1.5 rounded-xl bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-100 transition shadow-2xs"
                           title="Message Candidate"
                         >
-                          <span className="material-symbols-outlined text-[18px]">
+                          <span className="material-symbols-outlined text-[16px]">
                             chat
                           </span>
+                          <span>Message</span>
                         </Link>
                       </div>
                     </div>

@@ -2,6 +2,7 @@ import Job from '../models/Job.js';
 import Application from '../models/Application.js';
 import Company from '../models/Company.js';
 import User from '../models/User.js';
+import { resolveEmployerForCompany } from './companyController.js';
 
 // @desc    Get all jobs with search, filtering, sorting and pagination
 // @route   GET /api/jobs
@@ -131,6 +132,14 @@ export const getJobById = async (req, res, next) => {
         success: false,
         message: 'Job posting not found.',
       });
+    }
+
+    // Ensure postedBy is resolved for direct messaging
+    if (!job.postedBy && job.companyId) {
+      const employer = await resolveEmployerForCompany(job.companyId._id || job.companyId);
+      if (employer) {
+        job.postedBy = employer;
+      }
     }
 
     // Also get related jobs by same category or company

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
 import Message from '../models/Message.js';
+import Conversation from '../models/Conversation.js';
 import Notification from '../models/Notification.js';
 import { getJwtSecret } from '../config/jwt.js';
 
@@ -181,6 +182,35 @@ export const initSocket = (io) => {
           .populate('senderId', 'name avatar role')
           .populate('receiverId', 'name avatar role')
           .populate('jobId', 'title companyId');
+
+        // Update or create persistent Conversation document in MongoDB
+        try {
+          const existingConv = await Conversation.findOne({
+            participants: { $all: [userId, receiverId] },
+            jobId: jobId || null,
+          });
+
+          if (existingConv) {
+            existingConv.lastMessage = newMsg._id;
+            existingConv.lastMessageText = newMsg.messageText;
+            existingConv.lastMessageAt = newMsg.timestamp;
+            if (existingConv.archivedBy?.some((id) => id.toString() === userId.toString())) {
+              existingConv.archivedBy = existingConv.archivedBy.filter((id) => id.toString() !== userId.toString());
+            }
+            await existingConv.save();
+          } else {
+            await Conversation.create({
+              participants: [userId, receiverId],
+              jobId: jobId || null,
+              lastMessage: newMsg._id,
+              lastMessageText: newMsg.messageText,
+              lastMessageAt: newMsg.timestamp,
+              archivedBy: [],
+            });
+          }
+        } catch (convErr) {
+          console.error('[Socket] Conversation update error:', convErr.message);
+        }
 
         const room = getConversationRoom(userId, receiverId, jobId);
 

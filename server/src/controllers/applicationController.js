@@ -103,7 +103,10 @@ export const getCandidateApplications = async (req, res, next) => {
     const applications = await Application.find({ candidateId: req.user._id })
       .populate({
         path: 'jobId',
-        populate: { path: 'companyId' },
+        populate: [
+          { path: 'companyId', select: 'name logoUrl location employerId' },
+          { path: 'postedBy', select: 'name email avatar' },
+        ],
       })
       .sort({ appliedAt: -1 });
 

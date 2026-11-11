@@ -263,13 +263,24 @@ const CandidateDashboard = () => {
                             </span>
                           </td>
                           <td className="py-4 text-right">
-                            <Link
-                              to={`/messages`}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 inline-block"
-                              title="Message Recruiter"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">chat</span>
-                            </Link>
+                            {(() => {
+                              const empId =
+                                app.jobId?.postedBy?._id ||
+                                app.jobId?.postedBy ||
+                                app.jobId?.companyId?.employerId;
+                              const targetUrl = empId
+                                ? `/messages?partnerId=${empId}&jobId=${app.jobId?._id}`
+                                : `/messages`;
+                              return (
+                                <Link
+                                  to={targetUrl}
+                                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 inline-block"
+                                  title="Message Recruiter"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">chat</span>
+                                </Link>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))

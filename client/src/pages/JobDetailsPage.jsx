@@ -64,6 +64,33 @@ const JobDetailsPage = () => {
     setIsApplyModalOpen(true);
   };
 
+  const handleMessageEmployer = () => {
+    if (!isAuthenticated) {
+      navigate('/auth?mode=login', { state: { from: `/jobs/${id}` } });
+      return;
+    }
+
+    const employerId =
+      job?.postedBy?._id ||
+      job?.postedBy ||
+      job?.companyId?.employerId?._id ||
+      job?.companyId?.employerId;
+
+    if (!employerId && !job?.companyId?._id) {
+      showToast({
+        title: 'Recruiter Unavailable',
+        message: 'Direct messaging for this posting is currently being linked.',
+        type: 'info',
+      });
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (employerId) params.append('partnerId', employerId);
+    if (job?._id) params.append('jobId', job._id);
+    navigate(`/messages?${params.toString()}`);
+  };
+
   const handleApplicationSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -311,6 +338,14 @@ const JobDetailsPage = () => {
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleMessageEmployer}
+                    className="rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-center text-xs font-bold text-blue-700 hover:bg-blue-100 transition flex items-center justify-center gap-1.5 cursor-pointer w-full"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">chat</span>
+                    Message Employer
+                  </button>
                   {job.companyId.website && (
                     <a
                       href={job.companyId.website}
@@ -370,7 +405,15 @@ const JobDetailsPage = () => {
             </p>
           </div>
 
-          <div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleMessageEmployer}
+              className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[18px] text-blue-600">chat</span>
+              Message Employer
+            </button>
             {hasApplied ? (
               <button
                 disabled

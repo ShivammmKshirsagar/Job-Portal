@@ -1,5 +1,46 @@
 import Company from '../models/Company.js';
 import Job from '../models/Job.js';
+import User from '../models/User.js';
+
+/**
+ * Helper to reliably resolve the employer User account associated with a Company.
+ * Checks: 1. company.employerId, 2. Job.postedBy for this company, 3. User with companyId.
+ * Automatically links and persists employerId on the company if resolved.
+ */
+export const resolveEmployerForCompany = async (companyId) => {
+  if (!companyId) return null;
+  const company = await Company.findById(companyId);
+  if (!company) return null;
+
+  // 1. Direct company.employerId
+  if (company.employerId) {
+    const employer = await User.findById(company.employerId).select('_id name email avatar role title');
+    if (employer && employer.status !== 'banned') return employer;
+  }
+
+  // 2. Active Job posted for this company
+  const job = await Job.findOne({ companyId: company._id, postedBy: { $exists: true } });
+  if (job?.postedBy) {
+    const employer = await User.findById(job.postedBy).select('_id name email avatar role title');
+    if (employer && employer.status !== 'banned') {
+      company.employerId = employer._id;
+      await company.save();
+      return employer;
+    }
+  }
+
+  // 3. User with matching companyId
+  const user = await User.findOne({ companyId: company._id, role: 'employer', status: { $ne: 'banned' } }).select(
+    '_id name email avatar role title'
+  );
+  if (user) {
+    company.employerId = user._id;
+    await company.save();
+    return user;
+  }
+
+  return null;
+};
 
 // @desc    Get all companies with search and pagination
 // @route   GET /api/companies
@@ -86,6 +127,15 @@ export const getCompanyById = async (req, res, next) => {
       });
     }
 
+    // Resolve employer profile for messaging if not set or populated
+    let employer = null;
+    if (company.employerId) {
+      employer = await User.findById(company.employerId).select('_id name email avatar role title');
+    }
+    if (!employer) {
+      employer = await resolveEmployerForCompany(company._id);
+    }
+
     // Fetch active jobs for this company
     const jobs = await Job.find({ companyId: company._id, status: 'Active' }).sort({
       createdAt: -1,
@@ -95,6 +145,15 @@ export const getCompanyById = async (req, res, next) => {
       success: true,
       company: {
         ...company.toObject(),
+        employerId: employer
+          ? {
+              _id: employer._id,
+              name: employer.name,
+              email: employer.email,
+              avatar: employer.avatar,
+              title: employer.title,
+            }
+          : company.employerId,
         openRoles: jobs.length,
       },
       jobs,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -7,6 +7,7 @@ import { formatJobSalary } from '../utils/salary';
 
 const CompanyProfilePage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useNotification();
 
@@ -76,7 +77,51 @@ const CompanyProfilePage = () => {
   };
 
   const isOwner =
-    user && (user.role === 'admin' || user._id === company?.employerId);
+    user && (user.role === 'admin' || user._id === company?.employerId?._id || user._id === company?.employerId);
+
+  const handleMessageEmployer = async () => {
+    if (!user) {
+      navigate('/auth?mode=login', { state: { from: `/companies/${id}` } });
+      return;
+    }
+
+    if (isOwner) {
+      showToast({
+        title: 'Notice',
+        message: 'You are the registered administrator of this company profile.',
+        type: 'info',
+      });
+      return;
+    }
+
+    const employerId = company?.employerId?._id || (typeof company?.employerId === 'string' ? company.employerId : null);
+
+    if (employerId) {
+      navigate(`/messages?partnerId=${employerId}`);
+      return;
+    }
+
+    try {
+      const res = await api.post('/messages/conversations/initiate', {
+        companyId: company._id,
+      });
+      if (res.data.success && res.data.conversation?.partner?._id) {
+        navigate(`/messages?partnerId=${res.data.conversation.partner._id}`);
+      } else {
+        showToast({
+          title: 'Recruiter Unavailable',
+          message: 'This company does not currently have an active hiring representative linked.',
+          type: 'info',
+        });
+      }
+    } catch (err) {
+      showToast({
+        title: 'Error',
+        message: err.response?.data?.message || 'Failed to initiate conversation with employer.',
+        type: 'error',
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -184,6 +229,16 @@ const CompanyProfilePage = () => {
                   className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-xs transition"
                 >
                   Edit Profile
+                </button>
+              )}
+              {!isOwner && (
+                <button
+                  type="button"
+                  onClick={handleMessageEmployer}
+                  className="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-700 hover:bg-blue-100 shadow-xs transition cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">chat</span>
+                  Message Employer
                 </button>
               )}
               <button
