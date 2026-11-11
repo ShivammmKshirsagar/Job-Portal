@@ -59,7 +59,11 @@ const jobSchema = new mongoose.Schema(
     },
     salaryCurrency: {
       type: String,
-      default: 'USD',
+      default: 'INR',
+    },
+    salaryPeriod: {
+      type: String,
+      default: 'yearly',
     },
     location: {
       type: String,

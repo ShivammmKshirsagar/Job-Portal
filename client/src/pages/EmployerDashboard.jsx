@@ -21,8 +21,8 @@ const EmployerDashboard = () => {
     jobType: 'Full-Time',
     experienceLevel: 'Mid Level',
     location: '',
-    salaryMin: 80000,
-    salaryMax: 120000,
+    salaryMin: 800000,
+    salaryMax: 1500000,
     description: '',
     responsibilities: '',
     requirements: '',
@@ -76,9 +76,9 @@ const EmployerDashboard = () => {
         category: 'Development',
         jobType: 'Full-Time',
         experienceLevel: 'Mid Level',
-        location: 'San Francisco, CA (Hybrid)',
-        salaryMin: 90000,
-        salaryMax: 130000,
+        location: 'Bengaluru, Karnataka (Hybrid)',
+        salaryMin: 800000,
+        salaryMax: 1500000,
         description: '',
         responsibilities: '',
         requirements: '',
@@ -515,17 +515,18 @@ const EmployerDashboard = () => {
                     type="text"
                     required
                     value={jobForm.location}
-                    placeholder="e.g. San Francisco, CA (Hybrid)"
+                    placeholder="e.g. Bengaluru, Karnataka (Hybrid)"
                     onChange={(e) => setJobForm({ ...jobForm, location: e.target.value })}
                     className="w-full rounded-xl border border-slate-200 p-2.5 text-slate-900 focus:outline-none focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Salary Min ($)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Salary Min (₹ / INR Annual)</label>
                   <input
                     type="number"
                     value={jobForm.salaryMin}
+                    placeholder="e.g. 800000"
                     onChange={(e) =>
                       setJobForm({ ...jobForm, salaryMin: Number(e.target.value) })
                     }
@@ -534,10 +535,11 @@ const EmployerDashboard = () => {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Salary Max ($)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Salary Max (₹ / INR Annual)</label>
                   <input
                     type="number"
                     value={jobForm.salaryMax}
+                    placeholder="e.g. 1500000"
                     onChange={(e) =>
                       setJobForm({ ...jobForm, salaryMax: Number(e.target.value) })
                     }

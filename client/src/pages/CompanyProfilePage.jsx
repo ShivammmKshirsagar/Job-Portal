@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import { formatJobSalary } from '../utils/salary';
 
 const CompanyProfilePage = () => {
   const { id } = useParams();
@@ -169,7 +170,7 @@ const CompanyProfilePage = () => {
                     <span className="material-symbols-outlined text-[16px] text-slate-400">
                       location_on
                     </span>
-                    {company.location || 'San Francisco, CA'}
+                    {company.location || 'Bengaluru, Karnataka'}
                   </span>
                 </div>
               </div>
@@ -317,15 +318,14 @@ const CompanyProfilePage = () => {
                         <span className="material-symbols-outlined text-[18px]">place</span>
                       </div>
                       <span className="mt-1 text-[11px] font-bold text-blue-900">
-                        {company.location || 'San Francisco'}
+                        {company.location || 'Bengaluru'}
                       </span>
                     </div>
                   </div>
 
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    100 Market St, Suite 400<br />
-                    {company.location || 'San Francisco, CA 94105'}<br />
-                    United States
+                    {company.location || 'Outer Ring Road, Bengaluru, Karnataka 560103'}<br />
+                    India
                   </p>
                 </div>
 
@@ -412,9 +412,7 @@ const CompanyProfilePage = () => {
                           <span>{job.jobType}</span>
                           <span>•</span>
                           <span className="font-semibold text-slate-800">
-                            {job.salaryMin && job.salaryMax
-                              ? `$${(job.salaryMin / 1000).toFixed(0)}k - $${(job.salaryMax / 1000).toFixed(0)}k`
-                              : 'Competitive'}
+                            {formatJobSalary(job, 'Competitive')}
                           </span>
                         </div>
                       </div>

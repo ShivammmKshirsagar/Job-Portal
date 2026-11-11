@@ -70,7 +70,7 @@ const Navbar = () => {
             Companies
           </Link>
           <Link
-            to="/jobs?salaryMin=100000"
+            to="/jobs?salaryMin=1200000"
             className="transition hover:text-blue-600"
           >
             Salaries
@@ -300,7 +300,7 @@ const Navbar = () => {
               Companies
             </Link>
             <Link
-              to="/jobs?salaryMin=100000"
+              to="/jobs?salaryMin=1200000"
               onClick={() => setIsMenuOpen(false)}
               className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >

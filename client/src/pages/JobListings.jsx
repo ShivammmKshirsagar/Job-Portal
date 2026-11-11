@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import JobCard from '../components/JobCard';
+import { formatLpa } from '../utils/salary';
+
+const DEFAULT_SALARY_MIN = 300000;
+const DEFAULT_SALARY_MAX = 5000000;
 
 const JobListings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -15,8 +19,12 @@ const JobListings = () => {
   const [selectedExperience, setSelectedExperience] = useState(
     searchParams.get('experienceLevel') ? [searchParams.get('experienceLevel')] : []
   );
-  const [salaryMin, setSalaryMin] = useState(searchParams.get('salaryMin') || 40000);
-  const [salaryMax, setSalaryMax] = useState(searchParams.get('salaryMax') || 250000);
+  const [salaryMin, setSalaryMin] = useState(
+    searchParams.get('salaryMin') ? Number(searchParams.get('salaryMin')) : DEFAULT_SALARY_MIN
+  );
+  const [salaryMax, setSalaryMax] = useState(
+    searchParams.get('salaryMax') ? Number(searchParams.get('salaryMax')) : DEFAULT_SALARY_MAX
+  );
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'recent');
   const [currentPage, setCurrentPage] = useState(
     parseInt(searchParams.get('page') || '1', 10)
@@ -45,8 +53,8 @@ const JobListings = () => {
       if (selectedExperience.length > 0) {
         params.append('experienceLevel', selectedExperience[0]);
       }
-      if (salaryMin) params.append('salaryMin', salaryMin);
-      if (salaryMax && salaryMax < 250000) params.append('salaryMax', salaryMax);
+      if (salaryMin && Number(salaryMin) > DEFAULT_SALARY_MIN) params.append('salaryMin', salaryMin);
+      if (salaryMax && Number(salaryMax) < DEFAULT_SALARY_MAX) params.append('salaryMax', salaryMax);
       if (sortBy) params.append('sort', sortBy);
       params.append('page', currentPage);
       params.append('limit', 10);
@@ -90,7 +98,7 @@ const JobListings = () => {
       setActiveQuickFilter('');
       setSelectedJobTypes([]);
       setSearch('');
-      setSalaryMin(40000);
+      setSalaryMin(DEFAULT_SALARY_MIN);
       return;
     }
 
@@ -102,8 +110,8 @@ const JobListings = () => {
       setLocation('Remote');
     } else if (filter === 'Full-Time') {
       setSelectedJobTypes(['Full-Time']);
-    } else if (filter === '$100k+') {
-      setSalaryMin(100000);
+    } else if (filter === '₹15 LPA+') {
+      setSalaryMin(1500000);
     } else if (filter === 'Tech') {
       setSearch('Frontend Developer React Software Engineer');
     } else if (filter === 'Design') {
@@ -130,8 +138,8 @@ const JobListings = () => {
     setLocation('');
     setSelectedJobTypes([]);
     setSelectedExperience([]);
-    setSalaryMin(40000);
-    setSalaryMax(250000);
+    setSalaryMin(DEFAULT_SALARY_MIN);
+    setSalaryMax(DEFAULT_SALARY_MAX);
     setSortBy('recent');
     setActiveQuickFilter('');
     setCurrentPage(1);
@@ -168,7 +176,7 @@ const JobListings = () => {
               </span>
               <input
                 type="text"
-                placeholder="City, state, or zip"
+                placeholder="City, state, or 'Remote' (e.g. Bengaluru, Mumbai)"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full bg-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
@@ -186,7 +194,7 @@ const JobListings = () => {
           {/* Quick Filters */}
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 text-xs">
             <span className="font-bold text-slate-400 mr-1">Quick filters:</span>
-            {['Remote', 'Full-Time', '$100k+', 'Tech', 'Design'].map((filter) => (
+            {['Remote', 'Full-Time', '₹15 LPA+', 'Tech', 'Design'].map((filter) => (
               <button
                 key={filter}
                 type="button"
@@ -278,17 +286,17 @@ const JobListings = () => {
               <div className="border-t border-slate-100 pt-5">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Salary Estimate
+                    Salary Estimate (Annual CTC)
                   </h4>
                   <span className="text-xs font-bold text-blue-600">
-                    ${(salaryMin / 1000).toFixed(0)}k - ${(salaryMax / 1000).toFixed(0)}k+
+                    {formatLpa(salaryMin)} - {formatLpa(salaryMax)}+
                   </span>
                 </div>
                 <input
                   type="range"
-                  min="40000"
-                  max="250000"
-                  step="5000"
+                  min={DEFAULT_SALARY_MIN}
+                  max={DEFAULT_SALARY_MAX}
+                  step={100000}
                   value={salaryMin}
                   onChange={(e) => {
                     setSalaryMin(Number(e.target.value));
@@ -297,8 +305,8 @@ const JobListings = () => {
                   className="w-full accent-blue-600 cursor-pointer"
                 />
                 <div className="flex justify-between text-[11px] font-semibold text-slate-400 mt-1">
-                  <span>$40k</span>
-                  <span>$250k+</span>
+                  <span>₹3 LPA</span>
+                  <span>₹50 LPA+</span>
                 </div>
               </div>
             </div>

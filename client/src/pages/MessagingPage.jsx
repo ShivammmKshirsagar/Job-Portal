@@ -439,7 +439,7 @@ const MessagingPage = () => {
                     </Link>
                   </div>
                   <span className="text-[11px] font-semibold text-slate-500">
-                    San Francisco, CA →
+                    {activeJob.location || 'Remote — India'} →
                   </span>
                 </div>
               )}

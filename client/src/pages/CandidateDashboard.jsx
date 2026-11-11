@@ -400,7 +400,7 @@ const CandidateDashboard = () => {
                 <input
                   type="text"
                   value={profileForm.location}
-                  placeholder="e.g. San Francisco, CA"
+                  placeholder="e.g. Bengaluru, Karnataka"
                   onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })}
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-slate-800 focus:outline-none focus:border-blue-500"
                 />

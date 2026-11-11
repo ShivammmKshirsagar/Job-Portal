@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
+import { formatJobSalary } from '../utils/salary';
 
 const JobCard = ({ job, _onRegistered }) => {
   const navigate = useNavigate();
@@ -15,11 +16,7 @@ const JobCard = ({ job, _onRegistered }) => {
   const companyLogo = job.companyId?.logoUrl || job.logo || null;
   const companyId = job.companyId?._id || job.companyId;
 
-  const salaryDisplay =
-    job.salary ||
-    (job.salaryMin && job.salaryMax
-      ? `$${(job.salaryMin / 1000).toFixed(0)}k - $${(job.salaryMax / 1000).toFixed(0)}k`
-      : 'Competitive Salary');
+  const salaryDisplay = formatJobSalary(job);
 
   const skills = job.skillsRequired || job.skills || [];
 

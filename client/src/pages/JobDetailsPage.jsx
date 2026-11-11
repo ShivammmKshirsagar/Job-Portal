@@ -4,6 +4,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useJobs } from '../context/JobContext';
 import { useNotification } from '../context/NotificationContext';
+import { formatJobSalary } from '../utils/salary';
 
 const JobDetailsPage = () => {
   const { id } = useParams();
@@ -121,11 +122,7 @@ const JobDetailsPage = () => {
     );
   }
 
-  const salaryDisplay =
-    job.salary ||
-    (job.salaryMin && job.salaryMax
-      ? `$${job.salaryMin.toLocaleString()} - $${job.salaryMax.toLocaleString()}`
-      : 'Competitive Salary');
+  const salaryDisplay = formatJobSalary(job);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-28 pt-8">
@@ -308,7 +305,7 @@ const JobDetailsPage = () => {
                   <div>
                     <span className="text-slate-400 block font-semibold">Location</span>
                     <span className="text-slate-800 font-bold truncate block">
-                      {job.companyId.location || 'San Francisco, CA'}
+                      {job.companyId.location || 'Bengaluru, Karnataka'}
                     </span>
                   </div>
                 </div>
